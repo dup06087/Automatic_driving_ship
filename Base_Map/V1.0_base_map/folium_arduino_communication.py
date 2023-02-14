@@ -6,6 +6,8 @@ import folium, io, sys, json
 from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QMainWindow, QLabel
 import sys
 import serial
+from folium.plugins import MarkerCluster
+
 
 arduino = serial.Serial('COM3', 9600)
 app = QtWidgets.QApplication(sys.argv)
@@ -66,8 +68,6 @@ class WindowClass(QMainWindow) :
         layout = QVBoxLayout()
         self.folium_output = view
 
-        # self.folium_output(view.show())
-        # self.folium_output.show(view.show())
         layout.addWidget(self.folium_output)
 
         self.btn1 = QPushButton("Send")
@@ -75,7 +75,7 @@ class WindowClass(QMainWindow) :
         layout.addWidget(self.btn1)
 
         self.btn_stop = QPushButton("AddWidgets")
-        # self.btn_stop.clicked.connect()
+        self.btn_stop.clicked.connect(self.AddWidgets)
         layout.addWidget(self.btn_stop)
 
         self.widget = QWidget()
@@ -83,42 +83,28 @@ class WindowClass(QMainWindow) :
         self.setCentralWidget(self.widget)
 
     def SendData(self):
-        m = folium.Map(location=[37, 128], zoom_start=13)
+        mc =  MarkerCluster()
+        mc.add_child(
+            folium.Marker(location=[38,128],
+                   popup="Hi")
+        )
 
-        draw = Draw(
-            draw_options={
-                'polyline': False,
-                'rectangle': False,
-                'polygon': False,
-                'circle': False,
-                'marker': True,
-                'circlemarker': False},
-            edit_options={'edit': False})
-        m.add_child(draw)
+        m.add_child(mc)
+        m
 
-        formatter = "function(num) {return L.Util.formatNum(num, 3) + ' º ';};"
-        MousePosition(
-            position="topright",
-            separator=" | ",
-            empty_string="NaN",
-            lng_first=True,
-            num_digits=20,
-            prefix="Coordinates:",
-            lat_formatter=formatter,
-            lng_formatter=formatter,
-        ).add_to(m)
-        folium.Circle([37, 128],
-                      radius=100,
-                      color='blue'
-                      ).add_to(m)
-
-        data = io.BytesIO()
-
-
-        m.save(data, close_file=False)
-
+        # folium.Circle([37, 128],
+        #               radius=100,
+        #               color='blue'
+        #               ).add_to(m)
+        #
+        # data = io.BytesIO()
+        #
+        # m.save(data, close_file=False)
+        #
         view.setHtml(data.getvalue().decode())
 
+    def AddWidgets(self):
+        pass
 w = WindowClass()
 w.show()
 
