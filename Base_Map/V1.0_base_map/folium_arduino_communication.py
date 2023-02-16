@@ -90,7 +90,6 @@ class WindowClass(QMainWindow) :
         )
 
         m.add_child(mc)
-        m
 
         # folium.Circle([37, 128],
         #               radius=100,

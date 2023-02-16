@@ -36,7 +36,7 @@ class WindowClass(QMainWindow, form_class) :
 
         self.Folium.addWidget(self.view, stretch = 1)
 
-        m = folium.Map(
+        self.m = folium.Map(
             location=[37, 128], zoom_start=13
         )
 
@@ -49,7 +49,7 @@ class WindowClass(QMainWindow, form_class) :
                 'marker': True,
                 'circlemarker': False},
             edit_options={'edit': False})
-        m.add_child(draw)
+        self.m.add_child(draw)
 
         formatter = "function(num) {return L.Util.formatNum(num, 3) + ' º ';};"
         MousePosition(
@@ -61,16 +61,71 @@ class WindowClass(QMainWindow, form_class) :
             prefix="Coordinates:",
             lat_formatter=formatter,
             lng_formatter=formatter,
-        ).add_to(m)
+        ).add_to(self.m)
 
-        data = io.BytesIO()
 
-        m.save(data, close_file=False)
+
+        # folium.Circle([37 + (52.8163/60), 127 + (32.26924/60)],
+        #               radius=100,
+        #               color='blue'
+        #               ).add_to(m)
+
+        self.data = io.BytesIO()
+
+        self.m.save(self.data, close_file=False)
 
         # self.view = QtWebEngineWidgets.QWebEngineView()
         self.page = WebEnginePage(self.view)  ### get coords
         self.view.setPage(self.page)  ### get coords
-        self.view.setHtml(data.getvalue().decode())
+        self.view.setHtml(self.data.getvalue().decode())
+
+    def GetPosition(self):
+
+        self.m = folium.Map(
+            location=[37.6313, 127.0759], zoom_start=13, tiles='Stamen TonerBackground',
+            attr="toner-bcg")
+
+
+        folium.TileLayer('Stamen Terrain').add_to(self.m)
+        folium.TileLayer('Stamen Toner').add_to(self.m)
+        folium.TileLayer('Stamen Water Color').add_to(self.m)
+        folium.TileLayer('cartodbpositron').add_to(self.m)
+        folium.TileLayer('cartodbdark_matter').add_to(self.m)
+        folium.LayerControl().add_to(self.m)
+
+        draw = Draw(
+            draw_options={
+                'polyline': False,
+                'rectangle': False,
+                'polygon': False,
+                'circle': False,
+                'marker': True,
+                'circlemarker': False},
+            edit_options={'edit': False})
+        self.m.add_child(draw)
+
+        formatter = "function(num) {return L.Util.formatNum(num, 3) + ' º ';};"
+        MousePosition(
+            position="topright",
+            separator=" | ",
+            empty_string="NaN",
+            lng_first=True,
+            num_digits=20,
+            prefix="Coordinates:",
+            lat_formatter=formatter,
+            lng_formatter=formatter,
+        ).add_to(self.m)
+
+        folium.Circle([37.6313, 127.0759],
+                      radius=100,
+                      color='blue'
+                      ).add_to(self.m)
+
+        self.data = io.BytesIO()
+
+        self.m.save(self.data, close_file=False)
+
+        self.view.setHtml(self.data.getvalue().decode())
 
 
 w = WindowClass()
