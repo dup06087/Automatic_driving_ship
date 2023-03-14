@@ -1,30 +1,21 @@
-import io
-import sys
-
-from jinja2 import Template
-
-import folium
-
-from PyQt5.QtCore import pyqtSignal, QObject, QTimer
-from PyQt5.QtWidgets import QApplication, QMainWindow
-from PyQt5.QtWebEngineWidgets import QWebEngineView
-
-import time
+import base64
 
 from PyQt5 import uic, QtCore, QtWidgets, QtWebEngineWidgets # pip install pyqtwebengine
 from folium.plugins import Draw, MousePosition
 import folium, io, sys, json
 from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QMainWindow, QLabel
 import sys
-from PyQt5.QtCore import QObject, pyqtSignal,QTimer
+from PyQt5.QtCore import QObject, pyqtSignal, QTimer
 import serial
-from folium.plugins import MarkerCluster
+from PIL import Image
+
 import numpy as np
 from jinja2 import Template
 
 form_class = uic.loadUiType("V1_UI.ui")[0]
 app = QtWidgets.QApplication(sys.argv)
 
+img = Image.open('image.png')
 class CoordinateProvider(QObject):
     signal = pyqtSignal()
 
@@ -58,27 +49,7 @@ class Window(QMainWindow, form_class):
             zoom_start=18, location=coordinate, control_scale=True
         )
 
-        # self.m = folium.Map(
-        #     zoom_start=18, location=coordinate, control_scale=True, tiles=None
-        # )
 
-        # folium.raster_layers.TileLayer(
-        #     tiles="http://mt1.google.com/vt/lyrs=m&h1=p1Z&x={x}&y={y}&z={z}",
-        #     name="Standard Roadmap",
-        #     attr="Google Map",
-        # ).add_to(self.m)
-        # folium.raster_layers.TileLayer(
-        #     tiles="http://mt1.google.com/vt/lyrs=s&h1=p1Z&x={x}&y={y}&z={z}",
-        #     name="Satellite Only",
-        #     attr="Google Map",
-        # ).add_to(self.m)
-        # folium.raster_layers.TileLayer(
-        #     tiles="http://mt1.google.com/vt/lyrs=y&h1=p1Z&x={x}&y={y}&z={z}",
-        #     name="Hybrid",
-        #     attr="Google Map",
-        # ).add_to(self.m)
-        # folium.LayerControl().add_to(self.m)
-        # folium.Marker(coordinate).add_to(self.m)
 
         draw = Draw(
             draw_options={
@@ -103,6 +74,30 @@ class Window(QMainWindow, form_class):
             lng_formatter=formatter,
         ).add_to(self.m)
 
+        b = io.BytesIO()
+        img.rotate(45).save(b, format='PNG')
+        b64 = base64.b64encode(b.getvalue())
+
+        folium.raster_layers.ImageOverlay(
+            image=f'data:image/png;base64,{ b64.decode("utf-8") }',
+            bounds=[[37.631104100930436, 127.0779647879758], [37.63804100930436, 127.0900647879758]],
+            opacity=1,
+            interactive=False,
+            cross_origin=False,
+            zindex=1,
+        ).add_to(self.m)
+
+        # folium.raster_layers.ImageOverlay(
+        #     image='./image.png',
+        #     bounds=[[37.631104100930436, 127.0779647879758], [37.63804100930436, 127.0900647879758]],
+        #     opacity=1,
+        #     interactive=True,
+        #     cross_origin=False,
+        #     zindex=1,
+        # ).add_to(self.m)
+
+        self.marker = None
+
         self.data = io.BytesIO()
         self.m.save(self.data, close_file=False)
 
@@ -110,17 +105,18 @@ class Window(QMainWindow, form_class):
         self.view.setPage(self.page)  ### get coords
         self.view.setHtml(self.data.getvalue().decode())
 
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update_image)
+        self.timer.start(5000)  # 5 seconds
+
     def send_coordinate(self):
         # generate new coordinate randomly
 
         latitude = np.random.uniform(37.631104, 37.6311042)
         longitude = np.random.uniform(127.07796, 127.077965)
 
-        # emit coordinate_changed signal
-        # self.coordinate_changed.emit(latitude, longitude)
-
         js = Template(
-        #     """
+        #     """ 마커
         # L.marker([{{latitude}}, {{longitude}}] )
         #     .addTo({{map}});
         # L.circleMarker(
@@ -167,6 +163,23 @@ class Window(QMainWindow, form_class):
 
     def GetPosition(self):
         self.__CoordinateProvider.signal.emit()
+
+    def update_image(self):
+        print("hi")
+        bounds = [[37.631104100930436, 127.0779647879758], [38.804100930436, 128.900647879758]]
+
+        image_overlay_js = Template("""
+            var bounds = {bounds};
+            var imageUrl = './image.png';
+            var imageBounds = L.latLngBounds(bounds);
+            L.imageOverlay(imageUrl, imageBounds, {
+                opacity: 1,
+                interactive: true,
+                crossOrigin: false,
+                zIndex: 1
+            }).addTo(map);
+        """).render(bounds = bounds, map = self.m.get_name())
+        self.view.page().runJavaScript(image_overlay_js)
 
 def main():
     w = Window()
