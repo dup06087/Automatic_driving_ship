@@ -64,11 +64,6 @@ class DataThread(threading.Thread):
                     ser.close()
                 except:
                     pass
-                try:
-                    pass
-                    # sock.close()
-                except:
-                    pass
                 # 재접속 시도
                 time.sleep(10)
                 continue

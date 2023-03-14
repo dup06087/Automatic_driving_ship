@@ -52,8 +52,6 @@ class boat:
 		self.driveindex = 0
 		self.recDataPc1 = "0x6,DX,37.13457284,127.98545235,SELF,0,0x3"
 
-		#################initialize socket#################33
-		# ip = '172.20.10.10' # RPi4 ip address
 
 
 	def pid_heading(self, err_heading):  # heading direction PID
@@ -94,6 +92,7 @@ class boat:
 		PORT = 5001  # 클라이언트와 동일하게 5001 포트 사용
 
 		with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+			s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 			s.bind((HOST, PORT))
 			s.listen()
 			conn, addr = s.accept()
@@ -286,6 +285,8 @@ class boat:
 				print(f"e: {e}")
 
 	def thread_start(self):
+		t1 = threading.Thread(target=self.get_data_main)
+		t2 = threading.Thread(target=self.data_processing)
 		while True:
 			print("executed")
 			if self.end == 1:
@@ -295,10 +296,12 @@ class boat:
 
 			print("done?")
 			try:
-				t1 = threading.Thread(target=self.get_data_main)
-				t1.start()
-				t2 = threading.Thread(target=self.data_processing)
-				t2.start()
+				if not t1.is_alive():
+					t1.start()
+					print("restart t1")
+				if not t2.is_alive():
+					t2.start()
+					print("restart t2")
 				# t3 = threading.Thread(target=self.socket_com_main, args=(self.server_socket, self.addr))
 				# t3.start()
 				# t4 = threading.Thread(target=self.mbed_serial_com_main(self.ser))

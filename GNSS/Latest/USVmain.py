@@ -5,8 +5,9 @@ import socket
 import threading
 import time
 from haversine import haversine
+import serial
 # import _GNSS_dataprocessing
-# import GNSS_dataprocessing
+# import GNSS_dataproces/sing
 #from matplotlib import pyplot as plt
 
 class boat:
@@ -52,9 +53,12 @@ class boat:
 		self.driveindex = 0
 		self.recDataPc1 = "0x6,DX,37.13457284,127.98545235,SELF,0,0x3"
 
-		#################initialize socket#################33
-		# ip = '172.20.10.10' # RPi4 ip address
-
+		## GNSS
+		self.port = "COM7"
+		self.running = False
+		self.current_value = {"latitude": None, "longitude": None, "heading": None, "velocity": None}
+		self.message = None
+    	# GNSS End
 
 	def pid_heading(self, err_heading):  # heading direction PID
 		if self.isfirst:  ## Set first dt, err_prev, I_term_heading
@@ -88,41 +92,72 @@ class boat:
 		P_term=self.kp_dis*dis
 		return int(P_term)
 
+	def dict_to_str(d):
+		items = []
+		for k, v in d.items():
+			items.append(f"{k}={v}")
+		return ",".join(items)
+
 	def get_data_main(self): #NMEA data
+		self.running = True
+		data_counter = 0
+		while self.running:
+			try:
+				# 시리얼 포트 열기
+				ser = serial.Serial(self.port, baudrate=115200)
 
-		HOST = 'localhost'  # 호스트는 클라이언트와 동일하게 localhost
-		PORT = 5001  # 클라이언트와 동일하게 5001 포트 사용
+				# 소켓 연결
+				# sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+				# sock.connect(('localhost', 5001))
 
-		with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-			s.bind((HOST, PORT))
-			s.listen()
-			conn, addr = s.accept()
-			with conn:
-				print('Connected by', addr)
-				while True:
-					print("executed def")
-					NMEA_data = self.server_socket.recv(1024).decode()
-					if not NMEA_data:
-						print("Nope")
-						break
-					data = eval(NMEA_data)
-					# print(data)
-					self.latnow = data["latitude"]
-					self.lngnow = data["longitude"]
-					self.heading = data["heading"]
-					# xsens.getmeasure()
-					# if xsens.newData == True:
-					# 	xsens.newData = False
-					# 	xsens.parseData()
-					# 	heading=round(xsens.quat[2],2)
-					# 	latnow=xsens.gps[0]
-					# 	lngnow=xsens.gps[1]
-					## got heading, latnow, lngnow
-					recDataImu = str(self.heading) + ',' + str(self.latnow) + ',' + str(self.lngnow)
-					print(recDataImu)
-					# global self.flag_exit
-					if self.flag_exit:
-						break
+				# 데이터 수신 및 전송
+				while self.running:
+					data = ser.readline().decode().strip()
+					print(data)
+					if data.startswith('$GPHDT') or data.startswith('$GPRMC') or data.startswith(
+							'$GNHDT') or data.startswith('$GNRMC'):
+						tokens = data.split(',')
+						# print(tokens)
+						# print("error1")
+						if tokens[0] == '$GPHDT' or tokens[0] == '$GNHDT':
+							try:
+								self.current_value['heading'] = tokens[1]
+							except ValueError:
+								self.current_value['heading'] = None
+						# print("error2")
+						elif tokens[0] == '$GPRMC' or tokens[0] == '$GNRMC':
+							try:
+								self.current_value['latitude'] = tokens[3]
+								self.current_value['longitude'] = tokens[5]
+								self.current_value['velocity'] = tokens[7]
+							except ValueError:
+								continue
+
+						data_counter += 1
+						if data_counter % 2 == 0:
+							self.message = self.dict_to_str(self.current_value)
+							data_counter = 0
+							print(self.message)
+							self.latnow = self.current_value['latitude']
+							self.heading = self.current_value['heading']
+							self.lngnow = self.current_value['longitude']
+
+			except Exception as e:
+				print(f'Error: {e}')
+				try:
+					ser.close()
+				except:
+					pass
+				try:
+					pass
+				# sock.close()
+				except:
+					pass
+				# 재접속 시도
+				time.sleep(10)
+				continue
+
+
 
 	def data_processing(self):
 		while True:
@@ -264,6 +299,7 @@ class boat:
 			#print("serial communication")
 			sendToMbed=self.sendToMbedQ.get(True,2)
 			ser.write(sendToMbed.encode())
+
 			#print(sendToMbed)
 			# #global self.flag_exit
 			if self.flag_exit:
@@ -286,6 +322,8 @@ class boat:
 				print(f"e: {e}")
 
 	def thread_start(self):
+		t1 = threading.Thread(target=self.get_data_main)
+		t2 = threading.Thread(target=self.data_processing)
 		while True:
 			print("executed")
 			if self.end == 1:
@@ -295,10 +333,12 @@ class boat:
 
 			print("done?")
 			try:
-				t1 = threading.Thread(target=self.get_data_main)
-				t1.start()
-				t2 = threading.Thread(target=self.data_processing)
-				t2.start()
+				if not t1.is_alive():
+					t1.start()
+					print("restart t1")
+				if not t2.is_alive():
+					t2.start()
+					print("restart t2")
 				# t3 = threading.Thread(target=self.socket_com_main, args=(self.server_socket, self.addr))
 				# t3.start()
 				# t4 = threading.Thread(target=self.mbed_serial_com_main(self.ser))

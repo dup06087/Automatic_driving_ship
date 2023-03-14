@@ -23,15 +23,16 @@ class DataThread(threading.Thread):
         while self.running:
             try:
                 # 시리얼 포트 열기
-                ser = serial.Serial(self.port, baudrate=115200)
+                sock_ = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock_.connect(('localhost', 5000))
 
                 # 소켓 연결
-                # sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                # sock.connect(('localhost', 5001))
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.connect(('localhost', 5001))
 
                 # 데이터 수신 및 전송
                 while self.running:
-                    data = ser.readline().decode().strip()
+                    data = sock_.recv().decode()
                     print(data)
                     if data.startswith('$GPHDT') or data.startswith('$GPRMC') or data.startswith('$GNHDT') or data.startswith('$GNRMC'):
                         tokens = data.split(',')
@@ -54,19 +55,18 @@ class DataThread(threading.Thread):
                         data_counter += 1
                         if data_counter % 2 == 0:
                             self.message = dict_to_str(self.current_value)
-                            # sock.sendall(self.message.encode())
+                            sock.sendall(self.message.encode())
                             data_counter = 0
                             print(self.message)
 
             except Exception as e:
                 print(f'Error: {e}')
                 try:
-                    ser.close()
+                    sock.close()
                 except:
                     pass
                 try:
-                    pass
-                    # sock.close()
+                    sock_.close()
                 except:
                     pass
                 # 재접속 시도

@@ -54,7 +54,16 @@ class boat:
 
 		#################initialize socket#################33
 		# ip = '172.20.10.10' # RPi4 ip address
-
+		self.ip = "localhost"
+		# ser = serial.Serial('/dev/ttyAMA2',115200) # MBed Serial Communication Port
+		self.port = 5001
+		# 소켓 초기화
+		self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		# 소켓 에러처리
+		# self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+		# self.server_socket.bind((self.ip, self.port))
+		self.server_socket.connect(("localhost", 5001))
+		# self.server_socket.listen()
 
 	def pid_heading(self, err_heading):  # heading direction PID
 		if self.isfirst:  ## Set first dt, err_prev, I_term_heading
