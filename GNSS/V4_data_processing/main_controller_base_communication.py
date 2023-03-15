@@ -69,9 +69,9 @@ class boat:
                 # print("self.running running")
                 data = ser_gnss.readline().decode().strip()
                 # print(data)
-                if data.startswith('$'):
+                if data.sdftartswith('$'):
                     tokens = data.split(',')
-                    if tokens[0] == '$PSSN':
+                    if tokens[0] == '$PSSN': #HRP
                         try:
                             self.current_value['utc'] = tokens[2] # UTC
                             self.current_value['date'] = tokens[3] # date

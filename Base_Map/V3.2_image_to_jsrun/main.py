@@ -11,10 +11,10 @@ import serial
 from PIL import Image
 import numpy as np
 from jinja2 import Template
+import math
 
 form_class = uic.loadUiType("V1_UI.ui")[0]
 app = QtWidgets.QApplication(sys.argv)
-
 img = Image.open('image.png')
 
 class WebEnginePage(QtWebEngineWidgets.QWebEnginePage):
@@ -34,11 +34,6 @@ class Window(QMainWindow, form_class):
         self.setupUi(self)
 
         self.cnt = 0
-        # self.__CoordinateProvider = CoordinateProvider()
-        # self.__CoordinateProvider.signal.connect(self.send_coordinate)
-
-
-
 
         coordinate = (37.631104100930436, 127.0779647879758)
 
@@ -110,7 +105,6 @@ class Window(QMainWindow, form_class):
 
         self.view.setPage(self.page)  ### get coords
         self.view.setHtml(self.data.getvalue().decode())
-        # self.draw_ship()
 
         while self.isVisible():
             app.processEvents()
@@ -241,7 +235,6 @@ class Window(QMainWindow, form_class):
             );
             pointsArray.push(point);
             
-
             if (pointsArray.length >= 5) {
                 for (var i = 0; i < pointsArray.length; i++) {
                     {{map}}.removeLayer(pointsArray[i]);
@@ -260,18 +253,23 @@ class Window(QMainWindow, form_class):
         self.view.page().runJavaScript(js)
         self.cnt += 1
 
-    def print_points_array(result):
-        print(result)
-
     def GetPosition(self): ## 경로 지우는 용도로 써야겠다
-        self.__CoordinateProvider.signal.emit()
+        # self.__CoordinateProvider.signal.emit()
+        pass
 
     def draw_ship(self):
         # generate new coordinate randomly
+        print("in")
+        triangle1, triangle2, triangle3 = self.calculate_triangle_vertices(37.5665, 126.9780, 30, 100)
+        print("out")
+        latitude1, longitude1 = triangle1
+        latitude2, longitude2 = triangle2
+        latitude3, longitude3 = triangle3
+        print(triangle1, triangle2, triangle3)
         self.view.page().runJavaScript(Template("{{map}}.removeLayer(polygon)").render(map = self.m.get_name()))
 
-        latitude = np.random.uniform(37.631104, 38.6311042)
-        longitude = np.random.uniform(127.07796, 128.077965)
+        # latitude = np.random.uniform(37.631104, 38.6311042)
+        # longitude = np.random.uniform(127.07796, 128.077965)
 
         js = Template(
             """
@@ -281,14 +279,57 @@ class Window(QMainWindow, form_class):
                 [{{latitude3}}, {{longitude3}}]
             ]).addTo({{map}});
             """
-        ).render(map=self.m.get_name(), latitude=latitude, longitude=longitude,
-                 latitude2=latitude+0.5, longitude2=longitude+0.5,
-                 latitude3=latitude+0.5, longitude3=longitude-0.5)
+        ).render(map=self.m.get_name(), latitude=latitude1, longitude=longitude1,
+                 latitude2=latitude2, longitude2=longitude2,
+                 latitude3=latitude3, longitude3=longitude3)
 
         self.view.page().runJavaScript(js)
 
         print("hi")
 
+
+    def calculate_triangle_vertices(self, lat, lon, heading, ship_size):
+        # 위도(lat), 경도(lon)를 radian 단위로 변환
+        lat_rad = math.radians(lat)
+        lon_rad = math.radians(lon)
+
+        # 방위각(heading)를 radian 단위로 변환
+        heading_rad = math.radians(heading)
+
+        # 삼각형 내각을 120도로 설정
+        angle = math.radians(150)
+
+        # 선박 길이를 이등변삼각형 높이로 설정
+        height = ship_size / math.sqrt(3)
+
+        # 이등변삼각형의 내심 좌표 계산
+        center_lat = math.degrees(lat_rad - height * math.cos(heading_rad))
+        center_lon = math.degrees(lon_rad + height * math.sin(heading_rad) / math.cos(lat_rad))
+
+        # 삼각형 꼭지점 1 계산
+        lat1 = math.asin(
+            math.sin(lat_rad) * math.cos(height / 6371) + math.cos(lat_rad) * math.sin(height / 6371) * math.cos(
+                heading_rad))
+        lon1 = lon_rad + math.atan2(math.sin(heading_rad) * math.sin(height / 6371) * math.cos(lat_rad),
+                                    math.cos(height / 6371) - math.sin(lat_rad) * math.sin(lat1))
+
+        # 삼각형 꼭지점 2 계산
+        lat2 = math.asin(
+            math.sin(lat_rad) * math.cos(height / 6371) + math.cos(lat_rad) * math.sin(height / 6371) * math.cos(
+                heading_rad + angle))
+        lon2 = lon_rad + math.atan2(math.sin(heading_rad + angle) * math.sin(height / 6371) * math.cos(lat_rad),
+                                    math.cos(height / 6371) - math.sin(lat_rad) * math.sin(lat2))
+
+        # 삼각형 꼭지점 3 계산
+        lat3 = math.asin(
+            math.sin(lat_rad) * math.cos(height / 6371) + math.cos(lat_rad) * math.sin(height / 6371) * math.cos(
+                heading_rad - angle))
+        lon3 = lon_rad + math.atan2(math.sin(heading_rad - angle) * math.sin(height / 6371) * math.cos(lat_rad),
+                                    math.cos(height / 6371) - math.sin(lat_rad) * math.sin(lat3))
+
+        # 꼭지점 좌표를 리스트 형태로 반환
+        return [(math.degrees(lat1), math.degrees(lon1)), (math.degrees(lat2), math.degrees(lon2)),
+                (math.degrees(lat3), math.degrees(lon3))]
 def main():
     w = Window()
     w.show()
