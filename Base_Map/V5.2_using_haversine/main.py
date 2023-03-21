@@ -29,8 +29,9 @@ class Window(QMainWindow, form_class):
         self.setupUi(self)
         self.thread = None
         self.model = QStandardItemModel(self)
-        self.latitude = 37.633173
-        self.longitude = 127.077618
+        self.latitude = 37.632939
+        self.longitude = 127.076309
+
 
 
         self.dest_lat = None
@@ -47,7 +48,7 @@ class Window(QMainWindow, form_class):
         self.destination = None
         self.velocity = None
         self.heading = None
-        self.heading = 90
+        self.heading = 210
         self.roll = None
         self.pitch = None
         self.validity = None
@@ -300,29 +301,30 @@ class Window(QMainWindow, form_class):
         # print(self.sensor_data)
 
     def coordinates_diff(self):
-        try:
-            destination_longitude, destination_latitude = self.get_selected_coordinates()
-        except:
-            return print("No destination")
-
+        destination_longitude, destination_latitude = self.get_selected_coordinates()
         current_latitude = self.latitude
         current_longitude = self.longitude
         current_heading = self.heading
 
-        Kf = 1.0
-        Kd = 1.0
+        kl = 1.0
+        kr = 1.0
 
         # 헤딩 값을 -180에서 180 사이의 값으로 변환
         if current_heading > 180:
             current_heading = current_heading - 360
 
-        # Haversine 공식을 사용하여 두 지점 사이의 거리를 계산
-        distance_to_target = haversine((current_latitude, current_longitude),
-                                       (destination_latitude, destination_longitude), unit='m')
+        # 위도와 경도의 차이 계산
+        latitude_diff = destination_latitude - current_latitude
+        longitude_diff = destination_longitude - current_longitude
+
+        # 지자계 변환 공식을 사용하여 위도와 경도의 차이를 북방 및 동방 거리로 변환
+        earth_radius = 6371 * 1000  # 지구 반지름 (미터)
+
+        north_distance = latitude_diff * (math.pi / 180) * earth_radius
+        east_distance = longitude_diff * (math.pi / 180) * earth_radius * math.cos(math.radians(current_latitude))
 
         # 선박과 목적지가 이루는 선의 자북에 대한 각도 계산
-        target_angle = math.degrees(
-            math.atan2(destination_longitude - current_longitude, destination_latitude - current_latitude))
+        target_angle = math.degrees(math.atan2(east_distance, north_distance))
 
         # 헤딩과 목표 각도 간의 차이 계산
         angle_diff = target_angle - current_heading
@@ -331,19 +333,22 @@ class Window(QMainWindow, form_class):
         elif angle_diff < -180:
             angle_diff += 360
 
+        # 목표까지의 거리 계산
+        distance_to_target = math.sqrt(north_distance ** 2 + east_distance ** 2)
+
         # 각도 차이에 따른 throttle 및 roll 성분 계산
         throttle_component = distance_to_target * math.cos(math.radians(angle_diff))
         roll_component = distance_to_target * math.sin(math.radians(angle_diff))
 
-        # PWM 값 계산
-        Uf = Kf * throttle_component
-        Ud = Kd * roll_component
-        PWM_right = Uf + Ud
-        PWM_left = Uf - Ud
+        print("거리 차이 : ", throttle_component)
+        print("heading 방향 차이 : ", throttle_component, "y 방향 차이 : ", roll_component)
 
-        print(distance_to_target)
-        print("x :", throttle_component, "y : ", roll_component)
-        print("PWM_right : ", PWM_right, "PWM_left : ", PWM_left)
+        # PWM 값 계산
+        PWM_left = kl * (throttle_component + roll_component)
+        PWM_right = kr * (throttle_component - roll_component)
+
+        print("PWM_left:", PWM_left)
+        print("PWM_right:", PWM_right)
 
     def get_selected_coordinates(self) -> tuple:
         view = self.waypoints
