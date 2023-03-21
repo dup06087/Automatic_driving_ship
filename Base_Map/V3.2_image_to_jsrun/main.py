@@ -368,7 +368,7 @@ class Window(QMainWindow, form_class):
         #         self.points_init = True
         #     self.view.page().runJavaScript(js)
 
-    def GetPosition(self): ## 경로 지우는 용도로 써야겠다
+    def pointing(self): ## 경로 지우는 용도로 써야겠다
         if self.on_record == False:
             self.on_record = True
             return

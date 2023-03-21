@@ -1,4 +1,5 @@
 import base64
+import random
 import time
 
 from PyQt5 import uic, QtCore, QtWidgets, QtWebEngineWidgets # pip install pyqtwebengine
@@ -11,13 +12,11 @@ import serial
 from PIL import Image
 import numpy as np
 from jinja2 import Template
+import math
 
 form_class = uic.loadUiType("V1_UI.ui")[0]
 app = QtWidgets.QApplication(sys.argv)
-
 img = Image.open('image.png')
-class CoordinateProvider(QObject):
-    signal = pyqtSignal()
 
 class WebEnginePage(QtWebEngineWidgets.QWebEnginePage):
     def javaScriptAlert(self, securityOrigin: QtCore.QUrl, msg: str):
@@ -35,9 +34,8 @@ class Window(QMainWindow, form_class):
         super().__init__()
         self.setupUi(self)
 
-        self.__CoordinateProvider = CoordinateProvider()
-        self.__CoordinateProvider.signal.connect(self.send_coordinate)
-
+        self.points_init = False
+        self.on_record = True
         coordinate = (37.631104100930436, 127.0779647879758)
 
         self.view = QtWebEngineWidgets.QWebEngineView()
@@ -46,7 +44,7 @@ class Window(QMainWindow, form_class):
         self.Folium.addWidget(self.view, stretch = 1)
 
         self.m = folium.Map(
-            zoom_start=18, location=coordinate, control_scale=True
+            zoom_start=5, location=coordinate, control_scale=True
         )
 
         draw = Draw(
@@ -108,107 +106,295 @@ class Window(QMainWindow, form_class):
 
         self.view.setPage(self.page)  ### get coords
         self.view.setHtml(self.data.getvalue().decode())
-        # self.draw_ship()
+
+        while self.isVisible():
+            app.processEvents()
+
         self.timer = QTimer(self)
-
         self.timer.timeout.connect(self.draw_ship)
-        # self.timer.timeout.connect(self.send_coordinate)
-        self.timer.start(5000)  # 5 seconds
+        self.timer.timeout.connect(self.route_generate)
+        self.timer.start(2000)  # 5 seconds
 
-    def send_coordinate(self):
-        # generate new coordinate randomly
-
+    def route_generate(self):
         latitude = np.random.uniform(37.631104, 38.6311042)
         longitude = np.random.uniform(127.07796, 128.077965)
 
+        # js = Template(
+        # #     """ 마커
+        # # L.marker([{{latitude}}, {{longitude}}] )
+        # #     .addTo({{map}});
+        # # L.circleMarker(
+        # #     [{{latitude}}, {{longitude}}], {
+        # #         "bubblingMouseEvents": true,
+        # #         "color": "#3388ff",
+        # #         "dashArray": null,
+        # #         "dashOffset": null,
+        # #         "fill": false,
+        # #         "fillColor": "#3388ff",
+        # #         "fillOpacity": 0.2,
+        # #         "fillRule": "evenodd",
+        # #         "lineCap": "round",
+        # #         "lineJoin": "round",
+        # #         "opacity": 1.0,
+        # #         "radius": 2,
+        # #         "stroke": true,
+        # #         "weight": 5
+        # #     }
+        # # ).addTo({{map}});
+        # # """
+        # #     """
+        # #     var pointsArray = [];
+        # #     pointsArray = L.circleMarker(
+        # #         [{{latitude}}, {{longitude}}], {
+        # #             "bubblingMouseEvents": true,
+        # #             "color": "#3388ff",
+        # #             "dashArray": null,
+        # #             "dashOffset": null,
+        # #             "fill": true,
+        # #             "fillColor": "#3388ff",
+        # #             "fillOpacity": 0.2,
+        # #             "fillRule": "evenodd",
+        # #             "lineCap": "round",
+        # #             "lineJoin": "round",
+        # #             "opacity": 1.0,
+        # #             "radius": 2,
+        # #             "stroke": true,
+        # #             "weight": 5
+        # #         }
+        # #     ).addTo({{map}});
+        # #     """
+        # # ).render(map=self.m.get_name(), latitude=latitude, longitude=longitude)
+        # # self.view.page().runJavaScript(js)
+        # # self.cnt += 1
+        #
+        #     """
+        #         point = L.circleMarker(
+        #             [{{latitude}}, {{longitude}}], {
+        #                 "bubblingMouseEvents": true,
+        #                 "color": "#3388ff",
+        #                 "dashArray": null,
+        #                 "dashOffset": null,
+        #                 "fill": true,
+        #                 "fillColor": "#3388ff",
+        #                 "fillOpacity": 0.2,
+        #                 "fillRule": "evenodd",
+        #                 "lineCap": "round",
+        #                 "lineJoin": "round",
+        #                 "opacity": 1.0,
+        #                 "radius": 2,
+        #                 "stroke": true,
+        #                 "weight": 5
+        #             }
+        #         )
+        #         point.addTo({{map}});
+        #         pointsArray.push(point);
+        #
+        #
+        #         if (pointsArray.length >= 5) {
+        #             for (var i = 0; i < pointsArray.length; i++) {
+        #                 {{map}}.removeLayer(pointsArray[i]);
+        #             }
+        #         pointsArray = [];
+        #         }
+        #     """
+        # ).render(map=self.m.get_name(), latitude=latitude, longitude=longitude)
+        # self.view.page().runJavaScript(js)
+
         js = Template(
-        #     """ 마커
-        # L.marker([{{latitude}}, {{longitude}}] )
-        #     .addTo({{map}});
-        # L.circleMarker(
-        #     [{{latitude}}, {{longitude}}], {
-        #         "bubblingMouseEvents": true,
-        #         "color": "#3388ff",
-        #         "dashArray": null,
-        #         "dashOffset": null,
-        #         "fill": false,
-        #         "fillColor": "#3388ff",
-        #         "fillOpacity": 0.2,
-        #         "fillRule": "evenodd",
-        #         "lineCap": "round",
-        #         "lineJoin": "round",
-        #         "opacity": 1.0,
-        #         "radius": 2,
-        #         "stroke": true,
-        #         "weight": 5
-        #     }
-        # ).addTo({{map}});
-        # """
             """
-            L.circleMarker(
-                [{{latitude}}, {{longitude}}], {
-                    "bubblingMouseEvents": true,
-                    "color": "#3388ff",
-                    "dashArray": null,
-                    "dashOffset": null,
-                    "fill": true,
-                    "fillColor": "#3388ff",
-                    "fillOpacity": 0.2,
-                    "fillRule": "evenodd",
-                    "lineCap": "round",
-                    "lineJoin": "round",
-                    "opacity": 1.0,
-                    "radius": 2,
-                    "stroke": true,
-                    "weight": 5
-                }
-            ).addTo({{map}});
+            if ({{on_record}}) {
+                var point = L.circleMarker(
+                    [{{latitude}}, {{longitude}}], {
+                        "bubblingMouseEvents": true,
+                        "color": "#3388ff",
+                        "dashArray": null,
+                        "dashOffset": null,
+                        "fill": true,
+                        "fillColor": "#3388ff",
+                        "fillOpacity": 0.2,
+                        "fillRule": "evenodd",
+                        "lineCap": "round",
+                        "lineJoin": "round",
+                        "opacity": 1.0,
+                        "radius": 2,
+                        "stroke": true,
+                        "weight": 5
+                    }
+                );
+                pointsArray.push(point);
+                point.addTo({{map}});
+            }
             """
-        ).render(map=self.m.get_name(), latitude=latitude, longitude=longitude)
+        ).render(map=self.m.get_name(), latitude=latitude, longitude=longitude, on_record=str(self.on_record).lower())
+        # Leaflet이 초기화될 때 pointsArray를 생성해야 합니다.
+        init_js = Template("var pointsArray = [];").render()
+        if self.points_init == False:
+            self.view.page().runJavaScript(init_js)
+            self.points_init = True
         self.view.page().runJavaScript(js)
 
-    def GetPosition(self): ## 경로 지우는 용도로 써야겠다
-        self.__CoordinateProvider.signal.emit()
+        '''js erase code'''
+        # '''if (pointsArray.length >= 5) {
+        # for (var i = 0; i < pointsArray.length; i++) {
+        # {{map}}.removeLayer(pointsArray[i]);
+        # }
+        # pointsArray =[];
+        # } else {
+        # point.addTo({{map}});
+        # }'''
 
-    def update_image(self):
-        print("5")
-        bounds = [[37.631104100930436, 127.0779647879758], [37.804100930436, 127.500647879758]]
-        # image_path = "image.png"
-
-        image_overlay_js = Template("""
-            var bounds = {{ bounds }};
-            var imageUrl = 'image.png';
-            var imageBounds = L.latLngBounds(bounds);
-            L.imageOverlay(imageUrl, imageBounds, {
-                opacity: 1,
-                interactive: true,
-                crossOrigin: false,
-                zIndex: 1
-            }).addTo({{map}});
-        """).render(bounds=bounds, map=self.m.get_name())
-
-        # image_overlay_js = Template("""
-        # var imageUrl = 'image.png';
-        # var errorOverlayUrl = 'image.png';
-        # var altText = 'Error';
-        # var latLngBounds = L.latLngBounds([[40.799311, -74.118464], [40.68202047785919, -74.33]]);
+        # def route_generate(self):
+        #     latitude = np.random.uniform(37.631104, 38.6311042)
+        #     longitude = np.random.uniform(127.07796, 128.077965)
         #
-        # var imageOverlay = L.imageOverlay(imageUrl, latLngBounds, {
-        #     opacity: 0.8,
-        #     errorOverlayUrl: errorOverlayUrl,
-        #     alt: altText,
-        #     interactive: true
-        # }).addTo(map);
-        # """)
+        #     # js = Template(
+        #     # #     """ 마커
+        #     # # L.marker([{{latitude}}, {{longitude}}] )
+        #     # #     .addTo({{map}});
+        #     # # L.circleMarker(
+        #     # #     [{{latitude}}, {{longitude}}], {
+        #     # #         "bubblingMouseEvents": true,
+        #     # #         "color": "#3388ff",
+        #     # #         "dashArray": null,
+        #     # #         "dashOffset": null,
+        #     # #         "fill": false,
+        #     # #         "fillColor": "#3388ff",
+        #     # #         "fillOpacity": 0.2,
+        #     # #         "fillRule": "evenodd",
+        #     # #         "lineCap": "round",
+        #     # #         "lineJoin": "round",
+        #     # #         "opacity": 1.0,
+        #     # #         "radius": 2,
+        #     # #         "stroke": true,
+        #     # #         "weight": 5
+        #     # #     }
+        #     # # ).addTo({{map}});
+        #     # # """
+        #     # #     """
+        #     # #     var pointsArray = [];
+        #     # #     pointsArray = L.circleMarker(
+        #     # #         [{{latitude}}, {{longitude}}], {
+        #     # #             "bubblingMouseEvents": true,
+        #     # #             "color": "#3388ff",
+        #     # #             "dashArray": null,
+        #     # #             "dashOffset": null,
+        #     # #             "fill": true,
+        #     # #             "fillColor": "#3388ff",
+        #     # #             "fillOpacity": 0.2,
+        #     # #             "fillRule": "evenodd",
+        #     # #             "lineCap": "round",
+        #     # #             "lineJoin": "round",
+        #     # #             "opacity": 1.0,
+        #     # #             "radius": 2,
+        #     # #             "stroke": true,
+        #     # #             "weight": 5
+        #     # #         }
+        #     # #     ).addTo({{map}});
+        #     # #     """
+        #     # # ).render(map=self.m.get_name(), latitude=latitude, longitude=longitude)
+        #     # # self.view.page().runJavaScript(js)
+        #     # # self.cnt += 1
+        #     #
+        #     #     """
+        #     #         point = L.circleMarker(
+        #     #             [{{latitude}}, {{longitude}}], {
+        #     #                 "bubblingMouseEvents": true,
+        #     #                 "color": "#3388ff",
+        #     #                 "dashArray": null,
+        #     #                 "dashOffset": null,
+        #     #                 "fill": true,
+        #     #                 "fillColor": "#3388ff",
+        #     #                 "fillOpacity": 0.2,
+        #     #                 "fillRule": "evenodd",
+        #     #                 "lineCap": "round",
+        #     #                 "lineJoin": "round",
+        #     #                 "opacity": 1.0,
+        #     #                 "radius": 2,
+        #     #                 "stroke": true,
+        #     #                 "weight": 5
+        #     #             }
+        #     #         )
+        #     #         point.addTo({{map}});
+        #     #         pointsArray.push(point);
+        #     #
+        #     #
+        #     #         if (pointsArray.length >= 5) {
+        #     #             for (var i = 0; i < pointsArray.length; i++) {
+        #     #                 {{map}}.removeLayer(pointsArray[i]);
+        #     #             }
+        #     #         pointsArray = [];
+        #     #         }
+        #     #     """
+        #     # ).render(map=self.m.get_name(), latitude=latitude, longitude=longitude)
+        #     # self.view.page().runJavaScript(js)
+        #
+        #     js = Template(
+        #         """
+        #         var point = L.circleMarker(
+        #             [{{latitude}}, {{longitude}}], {
+        #                 "bubblingMouseEvents": true,
+        #                 "color": "#3388ff",
+        #                 "dashArray": null,
+        #                 "dashOffset": null,
+        #                 "fill": true,
+        #                 "fillColor": "#3388ff",
+        #                 "fillOpacity": 0.2,
+        #                 "fillRule": "evenodd",
+        #                 "lineCap": "round",
+        #                 "lineJoin": "round",
+        #                 "opacity": 1.0,
+        #                 "radius": 2,
+        #                 "stroke": true,
+        #                 "weight": 5
+        #             }
+        #         );
+        #         pointsArray.push(point);
+        #
+        #         if (pointsArray.length >= 5) {
+        #             for (var i = 0; i < pointsArray.length; i++) {
+        #                 {{map}}.removeLayer(pointsArray[i]);
+        #             }
+        #             pointsArray = [];
+        #         } else {
+        #             point.addTo({{map}});
+        #         }
+        #         """
+        #     ).render(map=self.m.get_name(), latitude=latitude, longitude=longitude)
+        #
+        #     # Leaflet이 초기화될 때 pointsArray를 생성해야 합니다.
+        #     init_js = Template("var pointsArray = [];").render()
+        #     if self.points_init == False:
+        #         self.view.page().runJavaScript(init_js)
+        #         self.points_init = True
+        #     self.view.page().runJavaScript(js)
 
-        self.view.page().runJavaScript(image_overlay_js)
+    def pointing(self): ## 경로 지우는 용도로 써야겠다
+        if self.on_record == False:
+            self.on_record = True
+            return
+
+        self.on_record = False
+        js = """
+                for (var i = 0; i < pointsArray.length; i++) {
+                    {{map}}.removeLayer(pointsArray[i]);
+                }
+                pointsArray = [];
+            """
+        self.view.page().runJavaScript(Template(js).render(map=self.m.get_name()))
 
     def draw_ship(self):
         # generate new coordinate randomly
+        print("in")
+        triangle1, triangle2, triangle3 = self.calculate_triangle_vertices(37.5665 + random.uniform(-0.0001, 0.0001), 126.9780 + random.uniform(-0.0001, 0.0001), 30 + random.uniform(-20, 20), 0.01)
+        print("out")
+        latitude1, longitude1 = triangle1
+        latitude2, longitude2 = triangle2
+        latitude3, longitude3 = triangle3
+        print(triangle1, triangle2, triangle3)
         self.view.page().runJavaScript(Template("{{map}}.removeLayer(polygon)").render(map = self.m.get_name()))
 
-        latitude = np.random.uniform(37.631104, 38.6311042)
-        longitude = np.random.uniform(127.07796, 128.077965)
+        # latitude = np.random.uniform(37.631104, 38.6311042)
+        # longitude = np.random.uniform(127.07796, 128.077965)
 
         js = Template(
             """
@@ -218,14 +404,54 @@ class Window(QMainWindow, form_class):
                 [{{latitude3}}, {{longitude3}}]
             ]).addTo({{map}});
             """
-        ).render(map=self.m.get_name(), latitude=latitude, longitude=longitude,
-                 latitude2=latitude+0.5, longitude2=longitude+0.5,
-                 latitude3=latitude+0.5, longitude3=longitude-0.5)
+        ).render(map=self.m.get_name(), latitude=latitude1, longitude=longitude1,
+                 latitude2=latitude2, longitude2=longitude2,
+                 latitude3=latitude3, longitude3=longitude3)
 
         self.view.page().runJavaScript(js)
 
         print("hi")
 
+    def calculate_triangle_vertices(self, lat, lon, heading, ship_size):
+        # 위도(lat), 경도(lon)를 radian 단위로 변환
+        lat_rad = math.radians(lat)
+        lon_rad = math.radians(lon)
+
+        # 방위각(heading)를 radian 단위로 변환
+        heading_rad = math.radians(heading)
+
+        # 선박의 길이를 이등변삼각형 높이로 설정
+        height = ship_size / 2
+
+        # 이등변삼각형의 내심 좌표 계산
+        center_lat = math.degrees(lat_rad - height * math.cos(heading_rad))
+        center_lon = math.degrees(lon_rad + height * math.sin(heading_rad) / math.cos(lat_rad))
+
+        # 삼각형 꼭지점 1 계산
+        lat1 = math.asin(
+            math.sin(lat_rad) * math.cos(height / 6371) + math.cos(lat_rad) * math.sin(height / 6371) * math.cos(
+                heading_rad))
+        lon1 = lon_rad + math.atan2(math.sin(heading_rad) * math.sin(height / 6371) * math.cos(lat_rad),
+                                    math.cos(height / 6371) - math.sin(lat_rad) * math.sin(lat1))
+
+        # 삼각형 꼭지점 2 계산
+        angle = math.radians(150)
+        lat2 = math.asin(
+            math.sin(lat_rad) * math.cos(height / 6371) + math.cos(lat_rad) * math.sin(height / 6371) * math.cos(
+                heading_rad + angle))
+        lon2 = lon_rad + math.atan2(math.sin(heading_rad + angle) * math.sin(height / 6371) * math.cos(lat_rad),
+                                    math.cos(height / 6371) - math.sin(lat_rad) * math.sin(lat2))
+
+        # 삼각형 꼭지점 3 계산
+        lat3 = math.asin(
+            math.sin(lat_rad) * math.cos(height / 6371) + math.cos(lat_rad) * math.sin(height / 6371) * math.cos(
+                heading_rad - angle))
+        lon3 = lon_rad + math.atan2(math.sin(heading_rad - angle) * math.sin(height / 6371) * math.cos(lat_rad),
+                                    math.cos(height / 6371) - math.sin(lat_rad) * math.sin(lat3))
+
+        # 꼭지점 좌표를 리스트 형태로 반환
+        return [(math.degrees(lat1), math.degrees(lon1)), (math.degrees(lat2), math.degrees(lon2)),
+                (math.degrees(lat3), math.degrees(lon3))]
 
 
 def main():
