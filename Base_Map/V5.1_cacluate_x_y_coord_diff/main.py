@@ -18,10 +18,59 @@ import math
 from haversine import haversine, Unit
 import socket
 import threading
+import queue
+import json
 
 form_class = uic.loadUiType("V1_UI.ui")[0]
 app = QtWidgets.QApplication(sys.argv)
 img = Image.open('image.png')
+
+class Worker(QtCore.QThread):
+    def run(self):
+        self.message = {"mode" : None, "dest_latitude" : None, "dest_longitude" : None}
+        self.sensor_data = None
+
+        print("where?")
+        while True:
+            host, port = 'localhost', 5001
+            stop_event = threading.Event()
+            client_socket = None
+
+            while not stop_event.is_set():
+                try:
+                    if not client_socket:
+                        # 소켓 생성 및 서버에 연결
+                        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        client_socket.connect((host, port))
+                        print("Connected to server")
+
+                    # 데이터 전송
+                    message = json.dumps(self.message)
+                    # 데이터 수신
+                    client_socket.sendall(message.encode())
+                    data = client_socket.recv(1024).decode()
+                    print(data)
+                    data = json.loads(data)
+                    self.sensor_data = data
+                    print("self.sensor_data : ", self.sensor_data)
+                    print(f"Received server data: {data}")
+
+                    time.sleep(1)
+
+                except socket.error as e:
+                    # 소켓 오류 처리
+                    print(f"Socket error: {e}")
+                    client_socket = None
+                    time.sleep(5)
+
+                except Exception as e:
+                    # 예외 처리
+                    print(f"PC data Error: {e}")
+                    time.sleep(5)
+
+            # 소켓 닫기
+            if client_socket:
+                client_socket.close()
 
 class Window(QMainWindow, form_class):
     def __init__(self):
@@ -31,8 +80,6 @@ class Window(QMainWindow, form_class):
         self.model = QStandardItemModel(self)
         self.latitude = 37.633173
         self.longitude = 127.077618
-
-
         self.dest_lat = None
         self.dest_lon = None
         self.motL_pwm = None
@@ -55,10 +102,19 @@ class Window(QMainWindow, form_class):
         self.IP = None
         self.com_status = None
 
-        self.sensor_data = {'mode': None, 'pwml': None, 'pwmr': None, 'position': None, 'destination': None, 'velocity': None,
-                'heading': None, 'roll': None, 'pitch': None, 'validity': None, 'time': None, 'IP': None,
-                'com_status': None}
+        self.sensor_data = {'mode': None, 'pwml': None, 'pwmr': None, "latitude": None, "longitude": None, 'dest_latitude': None, 'dest_longitude' : None,
+                            'velocity': None,
+                            'heading': None, 'roll': None, 'pitch': None, 'validity': None, 'time': None, 'IP': None,
+                            'com_status': None, 'date' : None}
+        ### mode : None, driving
 
+        ### 비교
+        '''
+        self.current_value = {'mode': None, 'pwml': None, 'pwmr': None, "latitude": None, "longitude": None, 'dest_latitude': None, 'dest_longitude' : None,
+                            'velocity': None,
+                            'heading': None, 'roll': None, 'pitch': None, 'validity': None, 'time': None, 'IP': None,
+                            'com_status': None, 'data' : None}
+        '''
         coordinate = (37.63319, 127.077624)
         self.view = QtWebEngineWidgets.QWebEngineView()
         self.view.setContentsMargins(50, 50, 50, 50)
@@ -104,11 +160,15 @@ class Window(QMainWindow, form_class):
         while self.isVisible():
             app.processEvents()
 
+        print("init before timer")
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.draw_ship)
         self.timer.timeout.connect(self.route_generate)
         self.timer.timeout.connect(self.show_sensor_data)
-        self.timer.start(2000)  # 5 seconds
+        self.timer.start(1000)  # 5 seconds
+
+        self.worker = Worker()
+        self.worker.start()
 
     def route_generate(self):
         # 이전 위치에서 일정 거리만큼 북동쪽 방향으로 이동
@@ -272,38 +332,44 @@ class Window(QMainWindow, form_class):
         self.model.removeRow(index.row())
 
     def show_sensor_data(self):
-        self.sensor_data = {
-            'mode': self.mode,
-            'pwml': self.pwml,
-            'pwmr': self.pwmr,
-            'position': self.position,
-            'destination': self.destination,
-            'velocity': self.velocity,
-            'heading': self.heading,
-            'roll': self.roll,
-            'pitch': self.pitch,
-            'validity': self.validity,
-            'time': self.time,
-            'IP': self.IP,
-            'com_status': self.com_status
-        }
-
-        for key, value in self.sensor_data.items():
-            edit_name = 'edit_' + key
-            if hasattr(self, edit_name):
-                edit_widget = getattr(self, edit_name)
-                if value is not None:
-                    edit_widget.setText(str(value))
-                else:
-                    edit_widget.setText("None")
-
+        if self.worker.sensor_data != None:
+            print("show_sensor_data exist")
+            self.sensor_data = self.worker.sensor_data
+            print(self.sensor_data)
+            try:
+                for key, value in self.sensor_data.items():
+                    if key != 'destination':
+                        try:
+                            edit_name = 'edit_' + key
+                            if hasattr(self, edit_name):
+                                edit_widget = getattr(self, edit_name)
+                                if value is not None:
+                                    edit_widget.setText(str(value))
+                                else:
+                                    edit_widget.setText("None")
+                        except:
+                            print("not showing data : ", key)
+                    elif key == "destination":
+                        pass
+                    else:
+                        print("error")
+            except:
+                print("why?")
         # print(self.sensor_data)
 
     def coordinates_diff(self):
         try:
             destination_longitude, destination_latitude = self.get_selected_coordinates()
+            self.edit_destination.setText(str(destination_longitude) + ", " + str(destination_latitude))
+            self.worker.message = str(destination_longitude) + ", " + str(destination_latitude)
+            self.worker.message = {"mode" : "driving", "dest_latitude" : str(destination_latitude), "dest_longitude" : str(destination_longitude)}
+            print("self.worker.message : ", self.worker.message)
+            ### self.worker.message를 통해 보내는 데이터는 > mode와 목적지
+            # 즉, { "목적지" : str(destination_longitude) + ", " + str(destination_latitude), "mode" : self
         except:
             return print("No destination")
+
+        # destination_longitude, destination_latitude
 
         current_latitude = self.latitude
         current_longitude = self.longitude
@@ -364,6 +430,7 @@ class Window(QMainWindow, form_class):
 
         return longitude, latitude
 
+
 class WebEnginePage(QtWebEngineWidgets.QWebEnginePage):
     def javaScriptAlert(self, securityOrigin: QtCore.QUrl, msg: str):
         f = open('stdout.txt', 'w')
@@ -382,8 +449,6 @@ class WebEnginePage(QtWebEngineWidgets.QWebEnginePage):
                 index = w.model.index(row, column)
                 item = w.model.data(index)
                 # print(f"Row {row}, Column {column}: {item}")
-
-global_data = {}
 
 w = Window()
 w.show()

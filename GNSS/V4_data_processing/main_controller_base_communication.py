@@ -5,7 +5,8 @@ import time
 from haversine import haversine
 import threading
 import serial
-
+import json
+import random
 
 class boat:
     def __init__(self):
@@ -18,21 +19,8 @@ class boat:
             self.destLat.append('0')
             self.destLng.append('0')  ################initialize target destination list
 
-        self.kp_heading = 1.9
-        # ki_heading=0.0000000003
-        self.ki_heading = 0.0000000002
-        self.kd_heading = 0.0000003
-        self.P_term_heading = 0
-        self.I_term_heading = 0
-        self.D_term_heading = 0
         self.err_prev = 0
         self.time_prev = 0
-        self.pid_heading_max = 250
-        self.pid_heading_min = 0
-        self.slowdis = 15
-        self.stopdis = 2
-        self.savedt = 0
-        self.kp_dis = 8
 
         QUEUE_SIZE = 30
         self.mq = queue.Queue(QUEUE_SIZE)
@@ -51,7 +39,11 @@ class boat:
         self.recDataPc1 = "0x6,DX,37.13457284,127.98545235,SELF,0,0x3"
 
         ## GNSS
-        self.current_value = {"latitude": None, "longitude": None, "heading": None, "velocity": None, 'utc' : None, 'data' : None, 'roll' : None, 'pitch' : None}
+        self.current_value = {'mode': None, 'pwml': None, 'pwmr': None, "latitude": None, "longitude": None,
+                            'velocity': None,
+                            'heading': None, 'roll': None, 'pitch': None, 'validity': None, 'time': None, 'IP': None,
+                            'com_status': None, 'date' : None}
+        # 'dest_latitude': None, 'dest_longitude': None,
         self.message = None
 
     def dict_to_str(self, d):
@@ -73,7 +65,7 @@ class boat:
                     tokens = data.split(',')
                     if tokens[0] == '$PSSN': #HRP
                         try:
-                            self.current_value['utc'] = tokens[2] # UTC
+                            self.current_value['time'] = tokens[2] # UTC
                             self.current_value['date'] = tokens[3] # date
                             self.current_value['heading'] = tokens[4]
                             self.current_value['roll'] = tokens[5]
@@ -90,7 +82,7 @@ class boat:
                         except ValueError:
                             continue
 
-                    # print(self.current_value)
+                    print("current value : ", self.current_value)
 
                     data_counter += 1
                     if data_counter % 2 == 0:
@@ -133,11 +125,12 @@ class boat:
             # ser_nucleo.close() #serial은 알아서 변수가 없어지나봄
             pass
 
-    def socket_pc(self, client_socket = 'localhost', ip = 5000):  # rasp > pc
+    def socket_pc(self, client_socket = 'localhost', ip = 5001):  # rasp > pc
         server_socket_pc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         host = client_socket
         port = ip
         server_address = (host, port)
+        server_socket_pc.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server_socket_pc.bind(server_address)
         server_socket_pc.listen(1)
 
@@ -158,18 +151,30 @@ class boat:
                         if not data:
                             break
 
+                        try:
+                            received_dict = json.loads(data.decode('utf-8'))
+                            print("received_dict : ", received_dict)
+                            self.current_value['mode'] = received_dict['mode']
+                            self.current_value['dest_latitude'] = received_dict['dest_latitude']
+                            self.current_value['dest_longitude'] = received_dict['dest_longitude']
+                        except:
+                            print("not get data yet")
                         # 수신한 데이터 출력
-                        print(f"Received pc data: {data.decode()}")
+
 
                         # 클라이언트에게 데이터 전송
-                        message = "Hello, client!"
+                        message = {'mode': "SELF", 'pwml': random.random(), 'pwmr': random.random(), "latitude": 37.633173, "longitude": 127.077618,
+                            'velocity': random.random(), 'heading': 0, 'roll': random.random(), 'pitch': random.random(), 'validity': random.random(), 'time': random.random(), 'IP': random.random(),
+                            'com_status': random.random(), 'date' : random.random()}
+                        message = json.dumps(message)
+                        print("message : ",message)
                         client_socket.sendall(message.encode())
 
                         time.sleep(1)
 
                 except Exception as e:
                     # 예외 처리
-                    print(f"Error: {e}")
+                    print(f"pc 연결 Error: {e}")
                 finally:
                     # 클라이언트 소켓 닫기
                     client_socket.close()
@@ -180,6 +185,7 @@ class boat:
         finally:
             # 서버 소켓 닫기
             server_socket_pc.close()
+
 
         # while True:
         #     try:
@@ -195,6 +201,59 @@ class boat:
         #     except ConnectionResetError as e:
         #         print("Disconnected by", addr[0], ':', addr[1])
         #         print(f"e: {e}")
+
+    def auto_driving(self):
+        while self.is_driving:
+            try:
+                if self.current_value['latitude'] is not None and self.current_value['longitude'] is not None and self.current_value['heading'] is not None and self.current_value['dest_latitude'] is not None and self.current_value['dest_longitude']:
+                    print("auto driving")
+                else:
+                    return print("하나 이상의 데이터를 수신받지 못함")
+            except:
+                pass
+
+            current_latitude = self.current_value['latitude']
+            current_longitude = self.current_value['longitude']
+            current_heading = self.current_value['heading']
+            destination_latitude = self.current_value['dest_latitude']
+            destination_longitude = self.current_value['dest_longitude']
+
+            Kf = 1.0
+            Kd = 1.0
+
+            # 헤딩 값을 -180에서 180 사이의 값으로 변환
+            if current_heading > 180:
+                current_heading = current_heading - 360
+
+            # Haversine 공식을 사용하여 두 지점 사이의 거리를 계산
+            distance_to_target = haversine((current_latitude, current_longitude),
+                                           (destination_latitude, destination_longitude), unit='m')
+
+            # 선박과 목적지가 이루는 선의 자북에 대한 각도 계산
+            target_angle = math.degrees(
+                math.atan2(destination_longitude - current_longitude, destination_latitude - current_latitude))
+
+            # 헤딩과 목표 각도 간의 차이 계산
+            angle_diff = target_angle - current_heading
+            if angle_diff > 180:
+                angle_diff -= 360
+            elif angle_diff < -180:
+                angle_diff += 360
+
+            # 각도 차이에 따른 throttle 및 roll 성분 계산
+            throttle_component = distance_to_target * math.cos(math.radians(angle_diff))
+            roll_component = distance_to_target * math.sin(math.radians(angle_diff))
+
+            # PWM 값 계산
+            Uf = Kf * throttle_component
+            Ud = Kd * roll_component
+            PWM_right = Uf + Ud
+            PWM_left = Uf - Ud
+
+            print(distance_to_target)
+            print("x :", throttle_component, "y : ", roll_component)
+            print("PWM_right : ", PWM_right, "PWM_left : ", PWM_left)
+
 
     def thread_start(self):
         t1 = threading.Thread(target=self.serial_gnss)

@@ -18,10 +18,59 @@ import math
 from haversine import haversine, Unit
 import socket
 import threading
+import queue
+import json
 
 form_class = uic.loadUiType("V1_UI.ui")[0]
 app = QtWidgets.QApplication(sys.argv)
 img = Image.open('image.png')
+
+class Worker(QtCore.QThread):
+    def run(self):
+        self.message = {"mode" : None, "dest_latitude" : None, "dest_longitude" : None}
+        self.sensor_data = None
+
+        print("where?")
+        while True:
+            host, port = 'localhost', 5001
+            stop_event = threading.Event()
+            client_socket = None
+
+            while not stop_event.is_set():
+                try:
+                    if not client_socket:
+                        # 소켓 생성 및 서버에 연결
+                        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        client_socket.connect((host, port))
+                        print("Connected to server")
+
+                    # 데이터 전송
+                    message = json.dumps(self.message)
+                    # 데이터 수신
+                    client_socket.sendall(message.encode())
+                    data = client_socket.recv(1024).decode()
+                    print(data)
+                    data = json.loads(data)
+                    self.sensor_data = data
+                    print("self.sensor_data : ", self.sensor_data)
+                    print(f"Received server data: {data}")
+
+                    time.sleep(1)
+
+                except socket.error as e:
+                    # 소켓 오류 처리
+                    print(f"Socket error: {e}")
+                    client_socket = None
+                    time.sleep(5)
+
+                except Exception as e:
+                    # 예외 처리
+                    print(f"PC data Error: {e}")
+                    time.sleep(5)
+
+            # 소켓 닫기
+            if client_socket:
+                client_socket.close()
 
 class Window(QMainWindow, form_class):
     def __init__(self):
@@ -29,38 +78,28 @@ class Window(QMainWindow, form_class):
         self.setupUi(self)
         self.thread = None
         self.model = QStandardItemModel(self)
-        self.latitude = 37.632939
-        self.longitude = 127.076309
-
-
-
-        self.dest_lat = None
-        self.dest_lon = None
-        self.motL_pwm = None
-        self.motR_pwm = None
+        # self.latitude = 37.633173
+        # self.longitude = 127.077618
         self.points_init = False
         self.on_record = True
 
-        self.mode = None
-        self.pwml = None
-        self.pwmr = None
-        self.position = None
-        self.destination = None
-        self.velocity = None
-        self.heading = None
-        self.heading = 210
-        self.roll = None
-        self.pitch = None
-        self.validity = None
-        self.time = None
-        self.IP = None
-        self.com_status = None
+        # self.heading = None
+        # self.heading = 90
 
-        self.sensor_data = {'mode': None, 'pwml': None, 'pwmr': None, 'position': None, 'destination': None, 'velocity': None,
-                'heading': None, 'roll': None, 'pitch': None, 'validity': None, 'time': None, 'IP': None,
-                'com_status': None}
+        self.sensor_data = {'mode': "SELF", 'pwml': None, 'pwmr': None, "latitude": 37.633173, "longitude": 127.077618, 'dest_latitude': None, 'dest_longitude' : None,
+                            'velocity': None,
+                            'heading': 0, 'roll': None, 'pitch': None, 'validity': None, 'time': None, 'IP': None,
+                            'com_status': None, 'date' : None}
+        ### mode : None, driving
 
-        coordinate = (37.63319, 127.077624)
+        ### 비교
+        '''
+        self.current_value = {'mode': None, 'pwml': None, 'pwmr': None, "latitude": None, "longitude": None, 'dest_latitude': None, 'dest_longitude' : None,
+                            'velocity': None,
+                            'heading': None, 'roll': None, 'pitch': None, 'validity': None, 'time': None, 'IP': None,
+                            'com_status': None, 'data' : None}
+        '''
+        coordinate = (self.sensor_data['latitude'], self.sensor_data['longitude'])
         self.view = QtWebEngineWidgets.QWebEngineView()
         self.view.setContentsMargins(50, 50, 50, 50)
 
@@ -109,7 +148,10 @@ class Window(QMainWindow, form_class):
         self.timer.timeout.connect(self.draw_ship)
         self.timer.timeout.connect(self.route_generate)
         self.timer.timeout.connect(self.show_sensor_data)
-        self.timer.start(2000)  # 5 seconds
+        self.timer.start(1000)  # 5 seconds
+
+        self.worker = Worker()
+        self.worker.start()
 
     def route_generate(self):
         # 이전 위치에서 일정 거리만큼 북동쪽 방향으로 이동
@@ -138,7 +180,7 @@ class Window(QMainWindow, form_class):
                 point.addTo({{map}});
             }
             """
-        ).render(map=self.m.get_name(), latitude=self.latitude, longitude=self.longitude, on_record=str(self.on_record).lower())
+        ).render(map=self.m.get_name(), latitude=self.sensor_data['latitude'], longitude=self.sensor_data['longitude'], on_record=str(self.on_record).lower())
         # Leaflet이 초기화될 때 pointsArray를 생성해야 합니다.
         init_js = Template("var pointsArray = [];").render()
         if self.points_init == False:
@@ -165,9 +207,8 @@ class Window(QMainWindow, form_class):
         # self.latitude += 0.00001
         # self.longitude += 0.00001
 
-        # triangle1, triangle2, triangle3 = self.calculate_triangle_vertices(self.latitude, self.longitude, 30 + random.uniform(-20, 20), 0.01)
-        triangle1, triangle2, triangle3 = self.calculate_triangle_vertices(self.latitude, self.longitude,
-                                                                           self.heading, 0.01)
+        triangle1, triangle2, triangle3 = self.calculate_triangle_vertices(self.sensor_data['latitude'], self.sensor_data['longitude'],
+                                                                           self.sensor_data['heading'], 0.01)
         latitude1, longitude1 = triangle1
         latitude2, longitude2 = triangle2
         latitude3, longitude3 = triangle3
@@ -272,59 +313,74 @@ class Window(QMainWindow, form_class):
         # Remove the item from the model
         self.model.removeRow(index.row())
 
+    def stop_driving(self):
+        self.worker.message = {"mode" : None, "dest_latitude" : None, "dest_longitude" : None}
+        self.sensor_data["mode"] = "SELF"
+        self.sensor_data["dest_latitude"] = None
+        self.sensor_data["dest_longitude"] = None
+
+        self.edit_mode.setText(str(self.sensor_data["mode"]))
+        self.edit_destination.setText(str(self.sensor_data["dest_latitude"]) + ", " + str(self.sensor_data["dest_longitude"]))
+
     def show_sensor_data(self):
-        self.sensor_data = {
-            'mode': self.mode,
-            'pwml': self.pwml,
-            'pwmr': self.pwmr,
-            'position': self.position,
-            'destination': self.destination,
-            'velocity': self.velocity,
-            'heading': self.heading,
-            'roll': self.roll,
-            'pitch': self.pitch,
-            'validity': self.validity,
-            'time': self.time,
-            'IP': self.IP,
-            'com_status': self.com_status
-        }
-
-        for key, value in self.sensor_data.items():
-            edit_name = 'edit_' + key
-            if hasattr(self, edit_name):
-                edit_widget = getattr(self, edit_name)
-                if value is not None:
-                    edit_widget.setText(str(value))
-                else:
-                    edit_widget.setText("None")
-
+        if self.worker.sensor_data != None:
+            print("show_sensor_data exist")
+            self.sensor_data = self.worker.sensor_data
+            print("current data : ", self.sensor_data)
+            try:
+                for key, value in self.sensor_data.items():
+                    if key != 'destination':
+                        try:
+                            edit_name = 'edit_' + key
+                            if hasattr(self, edit_name):
+                                edit_widget = getattr(self, edit_name)
+                                if value is not None:
+                                    edit_widget.setText(str(value))
+                                else:
+                                    edit_widget.setText("None")
+                        except:
+                            print("not showing data : ", key)
+                    elif key == "destination":
+                        pass
+                    else:
+                        print("error")
+            except:
+                print("why?")
         # print(self.sensor_data)
 
     def coordinates_diff(self):
-        destination_longitude, destination_latitude = self.get_selected_coordinates()
-        current_latitude = self.latitude
-        current_longitude = self.longitude
-        current_heading = self.heading
+        try:
+            destination_longitude, destination_latitude = self.get_selected_coordinates()
+            self.edit_destination.setText(str(destination_longitude) + ", " + str(destination_latitude))
+            self.worker.message = str(destination_longitude) + ", " + str(destination_latitude)
+            self.worker.message = {"mode" : "driving", "dest_latitude" : str(destination_latitude), "dest_longitude" : str(destination_longitude)}
+            self.edit_mode.setText("AUTO")
+            print("self.worker.message : ", self.worker.message)
+            ### self.worker.message를 통해 보내는 데이터는 > mode와 목적지
+            # 즉, { "목적지" : str(destination_longitude) + ", " + str(destination_latitude), "mode" : self
+        except:
+            return print("No destination")
 
-        kl = 1.0
-        kr = 1.0
+        # destination_longitude, destination_latitude
+
+        current_latitude = self.sensor_data['latitude']
+        current_longitude = self.sensor_data['longitude']
+        current_heading = self.sensor_data['heading']
+
+        Kf = 1.0
+        Kd = 1.0
 
         # 헤딩 값을 -180에서 180 사이의 값으로 변환
         if current_heading > 180:
             current_heading = current_heading - 360
 
-        # 위도와 경도의 차이 계산
-        latitude_diff = destination_latitude - current_latitude
-        longitude_diff = destination_longitude - current_longitude
-
-        # 지자계 변환 공식을 사용하여 위도와 경도의 차이를 북방 및 동방 거리로 변환
-        earth_radius = 6371 * 1000  # 지구 반지름 (미터)
-
-        north_distance = latitude_diff * (math.pi / 180) * earth_radius
-        east_distance = longitude_diff * (math.pi / 180) * earth_radius * math.cos(math.radians(current_latitude))
+        # Haversine 공식을 사용하여 두 지점 사이의 거리를 계산
+        distance_to_target = haversine((current_latitude, current_longitude),
+                                       (destination_latitude, destination_longitude), unit='m')
 
         # 선박과 목적지가 이루는 선의 자북에 대한 각도 계산
-        target_angle = math.degrees(math.atan2(east_distance, north_distance))
+        target_angle = math.degrees(
+            math.atan2(destination_longitude - current_longitude, destination_latitude - current_latitude))
 
         # 헤딩과 목표 각도 간의 차이 계산
         angle_diff = target_angle - current_heading
@@ -333,22 +389,19 @@ class Window(QMainWindow, form_class):
         elif angle_diff < -180:
             angle_diff += 360
 
-        # 목표까지의 거리 계산
-        distance_to_target = math.sqrt(north_distance ** 2 + east_distance ** 2)
-
         # 각도 차이에 따른 throttle 및 roll 성분 계산
         throttle_component = distance_to_target * math.cos(math.radians(angle_diff))
         roll_component = distance_to_target * math.sin(math.radians(angle_diff))
 
-        print("거리 차이 : ", throttle_component)
-        print("heading 방향 차이 : ", throttle_component, "y 방향 차이 : ", roll_component)
-
         # PWM 값 계산
-        PWM_left = kl * (throttle_component + roll_component)
-        PWM_right = kr * (throttle_component - roll_component)
+        Uf = Kf * throttle_component
+        Ud = Kd * roll_component
+        PWM_right = Uf + Ud
+        PWM_left = Uf - Ud
 
-        print("PWM_left:", PWM_left)
-        print("PWM_right:", PWM_right)
+        print(distance_to_target)
+        print("x :", throttle_component, "y : ", roll_component)
+        print("PWM_right : ", PWM_right, "PWM_left : ", PWM_left)
 
     def get_selected_coordinates(self) -> tuple:
         view = self.waypoints
@@ -369,6 +422,7 @@ class Window(QMainWindow, form_class):
 
         return longitude, latitude
 
+
 class WebEnginePage(QtWebEngineWidgets.QWebEnginePage):
     def javaScriptAlert(self, securityOrigin: QtCore.QUrl, msg: str):
         f = open('stdout.txt', 'w')
@@ -387,8 +441,6 @@ class WebEnginePage(QtWebEngineWidgets.QWebEnginePage):
                 index = w.model.index(row, column)
                 item = w.model.data(index)
                 # print(f"Row {row}, Column {column}: {item}")
-
-global_data = {}
 
 w = Window()
 w.show()

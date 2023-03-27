@@ -123,6 +123,13 @@
          </widget>
         </item>
         <item>
+         <widget class="QPushButton" name="btn_stop_driving">
+          <property name="text">
+           <string>Driving Stop</string>
+          </property>
+         </widget>
+        </item>
+        <item>
          <widget class="QPushButton" name="btn_pointing">
           <property name="text">
            <string>Pointing START/STOP</string>
@@ -229,11 +236,11 @@
          </layout>
         </item>
         <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_4">
+         <layout class="QHBoxLayout" name="horizontalLayout_11">
           <item>
-           <widget class="QLabel" name="label_6">
+           <widget class="QLabel" name="lbl_latitude">
             <property name="sizePolicy">
-             <sizepolicy hsizetype="Fixed" vsizetype="Minimum">
+             <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
@@ -251,19 +258,40 @@
              </size>
             </property>
             <property name="text">
-             <string>pos</string>
+             <string>lat</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QLineEdit" name="edit_position">
+           <widget class="QLineEdit" name="edit_latitude"/>
+          </item>
+          <item>
+           <widget class="QLabel" name="lbl_longitude">
             <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+             <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
             </property>
+            <property name="minimumSize">
+             <size>
+              <width>40</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>40</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>lon</string>
+            </property>
            </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="edit_longitude"/>
           </item>
          </layout>
         </item>
@@ -626,8 +654,8 @@
    <slot>pointing()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>995</x>
-     <y>374</y>
+     <x>1043</x>
+     <y>403</y>
     </hint>
     <hint type="destinationlabel">
      <x>1054</x>
@@ -699,6 +727,22 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>btn_stop_driving</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>stop_driving()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>836</x>
+     <y>359</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1025</x>
+     <y>716</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>pointing()</slot>
@@ -706,5 +750,6 @@
   <slot>move_item_down()</slot>
   <slot>delete_item()</slot>
   <slot>coordinates_diff()</slot>
+  <slot>stop_driving()</slot>
  </slots>
 </ui>
