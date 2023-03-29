@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1055</width>
-    <height>743</height>
+    <width>1129</width>
+    <height>813</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -36,7 +36,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QComboBox" name="comboBox">
+         <widget class="QComboBox" name="combo_mode">
           <item>
            <property name="text">
             <string>SELF</string>
@@ -176,6 +176,13 @@
          </layout>
         </item>
         <item>
+         <widget class="QLabel" name="label_3">
+          <property name="text">
+           <string>수신기 PWM</string>
+          </property>
+         </widget>
+        </item>
+        <item>
          <layout class="QHBoxLayout" name="horizontalLayout_3">
           <item>
            <widget class="QLabel" name="lbl_pwml">
@@ -198,7 +205,7 @@
              </size>
             </property>
             <property name="text">
-             <string>PWMl</string>
+             <string>왼쪽</string>
             </property>
            </widget>
           </item>
@@ -226,12 +233,79 @@
              </size>
             </property>
             <property name="text">
-             <string>PWMr</string>
+             <string>오른쪽</string>
             </property>
            </widget>
           </item>
           <item>
            <widget class="QLineEdit" name="edit_pwmr"/>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QLabel" name="label_4">
+          <property name="text">
+           <string>자율운항 PWM</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_4">
+          <item>
+           <widget class="QLabel" name="lbl_pwml_auto">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>40</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>40</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>왼쪽</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="edit_pwml_auto"/>
+          </item>
+          <item>
+           <widget class="QLabel" name="lbl_pwmr_auto">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>40</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>40</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>오른쪽</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="edit_pwmr_auto"/>
           </item>
          </layout>
         </item>
@@ -638,7 +712,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1055</width>
+     <width>1129</width>
      <height>21</height>
     </rect>
    </property>
@@ -715,7 +789,7 @@
    <sender>btn_drive</sender>
    <signal>clicked()</signal>
    <receiver>MainWindow</receiver>
-   <slot>coordinates_diff()</slot>
+   <slot>start_driving()</slot>
    <hints>
     <hint type="sourcelabel">
      <x>913</x>
@@ -749,7 +823,7 @@
   <slot>move_item_up()</slot>
   <slot>move_item_down()</slot>
   <slot>delete_item()</slot>
-  <slot>coordinates_diff()</slot>
+  <slot>start_driving()</slot>
   <slot>stop_driving()</slot>
  </slots>
 </ui>

@@ -52,8 +52,9 @@ class Worker(QtCore.QThread):
                     print(data)
                     data = json.loads(data)
                     self.sensor_data = data
-                    print("self.sensor_data : ", self.sensor_data)
-                    print(f"Received server data: {data}")
+                    print("Jetson >> COM, receive : ", self.sensor_data)
+                    print("COM >> Jetson, send : ", message)
+                    # print(f"Received server data: {data}")
 
                     time.sleep(1)
 
@@ -78,15 +79,14 @@ class Window(QMainWindow, form_class):
         self.setupUi(self)
         self.thread = None
         self.model = QStandardItemModel(self)
-        # self.latitude = 37.633173
-        # self.longitude = 127.077618
         self.points_init = False
         self.on_record = True
+        self.is_driving = False
+        self.combo_mode.setEnabled(False)
+        for line_edit in self.findChildren(QtWidgets.QLineEdit):
+            line_edit.setReadOnly(True)
 
-        # self.heading = None
-        # self.heading = 90
-
-        self.sensor_data = {'mode': "SELF", 'pwml': None, 'pwmr': None, "latitude": 37.633173, "longitude": 127.077618, 'dest_latitude': None, 'dest_longitude' : None,
+        self.sensor_data = {'mode': "SELF", 'pwml': None, 'pwmr': None, 'pwml_auto' : None, 'pwmr_auto' : None, "latitude": 37.633173, "longitude": 127.077618, 'dest_latitude': None, 'dest_longitude' : None,
                             'velocity': None,
                             'heading': 0, 'roll': None, 'pitch': None, 'validity': None, 'time': None, 'IP': None,
                             'com_status': None, 'date' : None}
@@ -315,12 +315,13 @@ class Window(QMainWindow, form_class):
 
     def stop_driving(self):
         self.worker.message = {"mode" : None, "dest_latitude" : None, "dest_longitude" : None}
-        self.sensor_data["mode"] = "SELF"
         self.sensor_data["dest_latitude"] = None
         self.sensor_data["dest_longitude"] = None
-
-        self.edit_mode.setText(str(self.sensor_data["mode"]))
+        self.sensor_data["pwml_auto"] = None
+        self.sensor_data["pwmr_auto"] = None
         self.edit_destination.setText(str(self.sensor_data["dest_latitude"]) + ", " + str(self.sensor_data["dest_longitude"]))
+        self.edit_pwml_auto.setText("None")
+        self.edit_pwmr_auto.setText("None")
 
     def show_sensor_data(self):
         if self.worker.sensor_data != None:
@@ -338,22 +339,34 @@ class Window(QMainWindow, form_class):
                                     edit_widget.setText(str(value))
                                 else:
                                     edit_widget.setText("None")
+
+
                         except:
                             print("not showing data : ", key)
                     elif key == "destination":
                         pass
                     else:
                         print("error")
+
+                if self.sensor_data['mode'] == "SELF":
+                    self.combo_mode.setCurrentText("SELF")  # 클릭된 값에 따라 변경
+                elif self.sensor_data['mode'] == "AUTO":
+                    self.combo_mode.setCurrentText("AUTO")  # 클릭된 값에 따라 변경
+                else:
+                    print("error UI in changing mode")
             except:
                 print("why?")
+
+
         # print(self.sensor_data)
 
-    def coordinates_diff(self):
+    def start_driving(self):
+        # if self.sensor_data["mode"] == "AUTO":
         try:
             destination_longitude, destination_latitude = self.get_selected_coordinates()
             self.edit_destination.setText(str(destination_longitude) + ", " + str(destination_latitude))
             self.worker.message = str(destination_longitude) + ", " + str(destination_latitude)
-            self.worker.message = {"mode" : "driving", "dest_latitude" : str(destination_latitude), "dest_longitude" : str(destination_longitude)}
+            self.worker.message = {"mode" : "AUTO", "dest_latitude" : str(destination_latitude), "dest_longitude" : str(destination_longitude)}
             self.edit_mode.setText("AUTO")
             print("self.worker.message : ", self.worker.message)
             ### self.worker.message를 통해 보내는 데이터는 > mode와 목적지
@@ -361,47 +374,15 @@ class Window(QMainWindow, form_class):
         except:
             return print("No destination")
 
-        # destination_longitude, destination_latitude
+        # elif self.sensor_data["mode"] == "SELF":
+        #     print("change to AUTO mode")
+        #
+        # elif self.sensor_data["mode"] == None:
+        #     print("change to AUTO mode")
+        #
+        # else:
+        #     print("ERROR during start_driving")
 
-        current_latitude = self.sensor_data['latitude']
-        current_longitude = self.sensor_data['longitude']
-        current_heading = self.sensor_data['heading']
-
-        Kf = 1.0
-        Kd = 1.0
-
-        # 헤딩 값을 -180에서 180 사이의 값으로 변환
-        if current_heading > 180:
-            current_heading = current_heading - 360
-
-        # Haversine 공식을 사용하여 두 지점 사이의 거리를 계산
-        distance_to_target = haversine((current_latitude, current_longitude),
-                                       (destination_latitude, destination_longitude), unit='m')
-
-        # 선박과 목적지가 이루는 선의 자북에 대한 각도 계산
-        target_angle = math.degrees(
-            math.atan2(destination_longitude - current_longitude, destination_latitude - current_latitude))
-
-        # 헤딩과 목표 각도 간의 차이 계산
-        angle_diff = target_angle - current_heading
-        if angle_diff > 180:
-            angle_diff -= 360
-        elif angle_diff < -180:
-            angle_diff += 360
-
-        # 각도 차이에 따른 throttle 및 roll 성분 계산
-        throttle_component = distance_to_target * math.cos(math.radians(angle_diff))
-        roll_component = distance_to_target * math.sin(math.radians(angle_diff))
-
-        # PWM 값 계산
-        Uf = Kf * throttle_component
-        Ud = Kd * roll_component
-        PWM_right = Uf + Ud
-        PWM_left = Uf - Ud
-
-        print(distance_to_target)
-        print("x :", throttle_component, "y : ", roll_component)
-        print("PWM_right : ", PWM_right, "PWM_left : ", PWM_left)
 
     def get_selected_coordinates(self) -> tuple:
         view = self.waypoints
@@ -421,6 +402,8 @@ class Window(QMainWindow, form_class):
             return None
 
         return longitude, latitude
+
+
 
 
 class WebEnginePage(QtWebEngineWidgets.QWebEnginePage):

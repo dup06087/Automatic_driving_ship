@@ -65,9 +65,9 @@ class WindowClass(QMainWindow) :
         # self.folium_output.show(view.show())
         layout.addWidget(self.folium_output)
 
-        self.btn1 = QPushButton("PLAY")
-        self.btn1.clicked.connect(self.SendData)
-        layout.addWidget(self.btn1)
+        # self.btn1 = QPushButton("PLAY")
+        # self.btn1.clicked.connect(self.SendData)
+        # layout.addWidget(self.btn1)
 
         # self.btn_stop = QPushButton("STOP")
         # self.btn_stop.clicked.connect(self.stopVideo)
@@ -77,8 +77,8 @@ class WindowClass(QMainWindow) :
         self.widget.setLayout(layout)
         self.setCentralWidget(self.widget)
 
-    def SendData(self):
-        pass
+    # def SendData(self):
+    #     pass
         ### serial 통신
 
 w = WindowClass()
