@@ -67,47 +67,61 @@ class boat:
             data_counter = 0
             while True:
                 # print("self.running running")
-                data = ser_gnss.readline().decode().strip()
-                # print(data)
-                if data.startswith('$'):
-                    tokens = data.split(',')
-                    if tokens[0] == '$PSSN': #HRP
-                        try:
-                            self.current_value['time'] = tokens[2] # UTC
-                            self.current_value['date'] = tokens[3] # date
-                            self.current_value['heading'] = tokens[4]
-                            self.current_value['roll'] = tokens[5]
-                            self.current_value['pitch'] = tokens[6]
+                if ser_gnss.in_waiting > 0:
+                    data = ser_gnss.readline().decode().strip()
+                    print("GNSS > Jetson : ",data)
+                    if data.startswith('$'):
+                        tokens = data.split(',')
 
+                        if tokens[0] == '$GPRMC' or tokens[0] == '$GNRMC':
+                            try:
+                                if tokens[2] == "A":
+                                    pass
+                                else:
+                                    continue
 
-                        except ValueError:
-                            self.current_value['heading'] = None
-                    # print("error2")
-                    elif tokens[0] == '$GPRMC' or tokens[0] == '$GNRMC':
-                        try:
-                            self.current_value['latitude'] = tokens[3]
-                            self.current_value['longitude'] = tokens[5]
-                            self.current_value['velocity'] = tokens[7]
-                        except ValueError:
-                            continue
+                                self.current_value['validity'] = tokens[2] ## A = valid, V = not Valid
 
-                    else:
-                        print("GNSS 수신 상태 불량")
-                    # print("current value : ", self.current_value)
+                                self.current_value['latitude'] = float(tokens[3])
+                                self.current_value['longitude'] = float(tokens[5])
+                                self.current_value['velocity'] = float(tokens[7])
+                            except ValueError:
+                                continue
 
-                    data_counter += 1
-                    if data_counter % 2 == 0:
-                            self.message = self.dict_to_str(self.current_value)
-                            data_counter = 0
-                            # print(self.message)
+                        elif tokens[0] == '$PSSN': #HRP
+                            try:
+                                self.current_value['time'] = tokens[2] # UTC
+                                self.current_value['date'] = tokens[3] # date
+                                self.current_value['heading'] = float(tokens[4])
+                                self.current_value['roll'] = float(tokens[5])
+                                self.current_value['pitch'] = float(tokens[6])
 
-                            # print("GNSS >> Jetson : ", self.current_value)
-                            self.latnow = self.current_value['latitude']
-                            self.heading = self.current_value['heading']
-                            self.lngnow = self.current_value['longitude']
+                            except ValueError:
+                                print("GNSS >> position fix 문제")
+                                self.current_value['heading'] = None
+                                self.current_value['roll'] = None
+                                self.current_value['pitch'] = None
+
+                        else:
+                            print("GNSS 수신 상태 불량")
+                        print("self.current value : ", self.current_value)
+
+                        data_counter += 1
+                        if data_counter % 2 == 0:
+                                self.message = self.dict_to_str(self.current_value)
+                                data_counter = 0
+                                # print(self.message)
+
+                                # print("GNSS >> Jetson : ", self.current_value)
+                                self.latnow = self.current_value['latitude']
+                                self.heading = self.current_value['heading']
+                                self.lngnow = self.current_value['longitude']
+
+                else:
+                    time.sleep(0.2)
 
         except Exception as e:
-                print(f'Error: {e}')
+                print(f'GNSS >> Error : {e}')
 
         finally:
             # ser_gnss.close() #필요가 없네?
@@ -125,7 +139,7 @@ class boat:
                 pwm_left_auto = int(self.current_value['pwml_auto'] if self.current_value['pwml_auto'] is not None else random.randint(1500,2000))
                 pwm_right_auto = int(self.current_value['pwmr_auto'] if self.current_value['pwmr_auto'] is not None else random.randint(1500,2000))
 
-                ###여기는 Jetson >> Nucleo 인데, 무조건 pwm_auto값만 보내는거, 그냥 pwm값은 보낼 필요가 없음
+                ###여기는 Jetson >> Nucleo 인데, 무조건 pwm_auto값만 보내는거, 그냥 pwm값은 보낼 필요가 없음 :: 현재 랜덤값 나중에는 else random.randint에 값 제대로 해야함, 즉 1500 or 0
                 data_str = f"mode:{mode_str},pwm_left:{pwm_left_auto},pwm_right:{pwm_right_auto}\n".strip()
                 '''nucleo는 data_str을 계속 받아, pwm_left_auto, pwm_right_auto로 둔다.'''
                 # 데이터 전송
@@ -149,12 +163,14 @@ class boat:
                 current_time = time.time()
                 if current_time - last_print_time >= 1:  # 마지막 출력 후 1초 경과 여부 확인
                     try:
-                        print("Jetson >> Nucleo, send : ", data_str)
+                        # print("Jetson >> Nucleo, send : ", data_str)
                         # print("Nucleo >> Received : ", data.decode('utf-8').strip())
-                        print("Nucleo >> Jetson, Received : ", f"mode:{mode_str},pwm_left:{pwm_left},pwm_right:{pwm_right}")
+                        # print("Nucleo >> Jetson, Received : ", f"mode:{self.current_value['mode']},pwm_left:{self.current_value['pwml']},pwm_right:{self.current_value['pwmr']}")
                         last_print_time = current_time  # 마지막 출력 시간 업데이트
                     except:
                         pass
+
+                time.sleep(0.01) ## delay없으면 serial에 쓰기전에 가져가 버림
 
         except Exception as e:
             print("Nucleo : ", e)
