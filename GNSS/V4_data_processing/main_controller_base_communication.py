@@ -15,6 +15,8 @@ class boat:
         self.destLat = []
         self.destLng = []
         self.is_driving = False
+        self.distance_to_target = 0
+
         for i in range(20):
             self.destLat.append('0')
             self.destLng.append('0')  ################initialize target destination list
@@ -47,7 +49,7 @@ class boat:
         self.current_value = {'mode': "SELF", 'pwml': None, 'pwmr': None, 'pwml_auto' : None, 'pwmr_auto' : None, "latitude": 37.633173, "longitude": 127.077618,
                          'velocity': None,
                          'heading': 0, 'roll': None, 'pitch': None, 'validity': None, 'time': None, 'IP': None,
-                         'com_status': None, 'date': None}
+                         'com_status': None, 'date': None, 'dest_latitude' : None, 'dest_longitude' : None}
 
         # 'dest_latitude': None, 'dest_longitude': None,
         self.message = None
@@ -67,7 +69,7 @@ class boat:
                 # print("self.running running")
                 data = ser_gnss.readline().decode().strip()
                 # print(data)
-                if data.sdftartswith('$'):
+                if data.startswith('$'):
                     tokens = data.split(',')
                     if tokens[0] == '$PSSN': #HRP
                         try:
@@ -89,14 +91,17 @@ class boat:
                         except ValueError:
                             continue
 
-                    print("current value : ", self.current_value)
+                    else:
+                        print("GNSS 수신 상태 불량")
+                    # print("current value : ", self.current_value)
 
                     data_counter += 1
                     if data_counter % 2 == 0:
                             self.message = self.dict_to_str(self.current_value)
                             data_counter = 0
-                            print(self.message)
-                            print(self.current_value)
+                            # print(self.message)
+
+                            # print("GNSS >> Jetson : ", self.current_value)
                             self.latnow = self.current_value['latitude']
                             self.heading = self.current_value['heading']
                             self.lngnow = self.current_value['longitude']
@@ -117,11 +122,11 @@ class boat:
 
             while True:
                 mode_str = self.current_value['mode']
-                pwm_left = int(self.current_value['pwml_auto'] if self.current_value['pwml_auto'] is not None else 1800)
-                pwm_right = int(self.current_value['pwmr_auto'] if self.current_value['pwmr_auto'] is not None else 1800)
+                pwm_left_auto = int(self.current_value['pwml_auto'] if self.current_value['pwml_auto'] is not None else random.randint(1500,2000))
+                pwm_right_auto = int(self.current_value['pwmr_auto'] if self.current_value['pwmr_auto'] is not None else random.randint(1500,2000))
 
-                # data_str = f"<mode:{mode_str} pwm_left:{pwm_left} pwm_right:{pwm_right}>"
-                data_str = f"mode:{mode_str},pwm_left:{pwm_left},pwm_right:{pwm_right}\n"
+                ###여기는 Jetson >> Nucleo 인데, 무조건 pwm_auto값만 보내는거, 그냥 pwm값은 보낼 필요가 없음
+                data_str = f"mode:{mode_str},pwm_left:{pwm_left_auto},pwm_right:{pwm_right_auto}\n".strip()
                 '''nucleo는 data_str을 계속 받아, pwm_left_auto, pwm_right_auto로 둔다.'''
                 # 데이터 전송
                 ser_nucleo.write(data_str.encode())
@@ -134,11 +139,9 @@ class boat:
                     try:
                         parsed_data = dict(item.split(":") for item in data.split(","))
 
-                        mode_str = parsed_data.get('mode', 'UNKNOWN')
-                        pwm_left = int(parsed_data.get('pwm_left', '0'))
-                        pwm_right = int(parsed_data.get('pwm_right', '0'))
-
-                        self.current_value['mode'] = mode_str.strip()
+                        self.current_value['mode'] = str(parsed_data.get('mode', 'UNKNOWN').strip())
+                        self.current_value['pwml'] = int(parsed_data.get('pwm_left', '0').strip())
+                        self.current_value['pwmr'] = int(parsed_data.get('pwm_right', '0').strip())
 
                     except:
                         pass
@@ -152,7 +155,6 @@ class boat:
                         last_print_time = current_time  # 마지막 출력 시간 업데이트
                     except:
                         pass
-                time.sleep(0.2)
 
         except Exception as e:
             print("Nucleo : ", e)
@@ -190,7 +192,7 @@ class boat:
 
                         try:
                             received_dict = json.loads(data.decode('utf-8'))
-                            print("COM >> Jetson, received_dict : ", received_dict)
+                            # print("COM >> Jetson, received_dict : ", received_dict)
                             self.current_value['dest_latitude'] = received_dict['dest_latitude']
                             self.current_value['dest_longitude'] = received_dict['dest_longitude']
                             if self.current_value['dest_latitude'] is not None and self.current_value['dest_longitude'] and self.current_value['mode'] == "AUTO":
@@ -205,10 +207,8 @@ class boat:
                         # 클라이언트에게 데이터 전송
                         message = self.current_value
 
-
-
                         message = json.dumps(message)
-                        print("Jetson >> COM, send : ",message)
+                        # print("Jetson >> COM, send : ",message)
                         client_socket.sendall(message.encode())
 
                         time.sleep(1)
@@ -235,15 +235,16 @@ class boat:
         while True:
             while not send_well:
                 try:
-                    if self.current_value['latitude'] is not None and self.current_value['longitude'] is not None and self.current_value['heading'] is not None and self.current_value['dest_latitude'] is not None and self.current_value['dest_longitude']:
-                        print("auto driving")
+                    if self.current_value['latitude'] is not None and self.current_value['longitude'] is not None and self.current_value['heading'] is not None and self.current_value['dest_latitude'] is not None and self.current_value['dest_longitude'] is not None:
+                        # print("auto driving")
                         send_well = True
                     else:
                         time.sleep(1)
-                        print("하나 이상의 데이터를 수신받지 못함, auto driving 실행 안 함")
+                        # print("하나 이상의 데이터를 수신받지 못함, auto driving 실행 안 함")
                         # return
-                except:
-                    print("하나 이상의 데이터를 수신받지 못함, auto driving 실행 안 함")
+                except Exception as E:
+                    print(E)
+                    # print("하나 이상의 데이터를 수신받지 못함, auto driving 실행 안 함2")
                     time.sleep(1)
                     # return
 
@@ -299,58 +300,58 @@ class boat:
             current_time = time.time()
             if current_time - last_print_time >= 1:  # 마지막 출력 후 1초 경과 여부 확인
                 try:
-                    print(self.distance_to_target)
-                    print("x :", throttle_component, "y : ", roll_component)
-                    print("PWM_right : ", PWM_right, "PWM_left : ", PWM_left)
+                    # print(self.distance_to_target)
+                    # print("x :", throttle_component, "y : ", roll_component)
+                    # print("PWM_right : ", PWM_right, "PWM_left : ", PWM_left)
                     last_print_time = current_time  # 마지막 출력 시간 업데이트
                 except:
                     pass
             time.sleep(0.1)
 
     def simulator(self):
-        while True:
-            print("simulator start")
-            try:
-                if self.current_value['pwml_auto'] == self.current_value['pwmr_auto'] and self.current_value['pwmr_auto'] != 1500:
-                    # Go straight
-                    lat_diff = 0.00001 * math.cos(math.radians(self.current_value['heading']))
-                    lng_diff = 0.00001 * math.sin(math.radians(self.current_value['heading']))
-                elif self.current_value['pwml_auto'] < self.current_value['pwmr_auto']:
-                    # Turn right
-                    heading_diff = math.radians(5)
-                    lat_diff = 0.00001 * math.cos(math.radians(self.current_value['heading'] - heading_diff))
-                    lng_diff = 0.00001 * math.sin(math.radians(self.current_value['heading'] - heading_diff))
-                    self.current_value['heading'] -= math.degrees(heading_diff)
-                elif self.current_value['pwml_auto'] > self.current_value['pwmr_auto']:
-                    # Turn left
-                    heading_diff = math.radians(5)
-                    lat_diff = 0.00001 * math.cos(math.radians(self.current_value['heading'] + heading_diff))
-                    lng_diff = 0.00001 * math.sin(math.radians(self.current_value['heading'] + heading_diff))
-                    self.current_value['heading'] += math.degrees(heading_diff)
+        if self.distance_to_target:
+            while True:
+                # print("simulator start")
+                try:
+                    if self.current_value['pwml_auto'] == self.current_value['pwmr_auto'] and self.current_value['pwmr_auto'] != 1500:
+                        # Go straight
+                        lat_diff = 0.00001 * math.cos(math.radians(self.current_value['heading']))
+                        lng_diff = 0.00001 * math.sin(math.radians(self.current_value['heading']))
+                    elif self.current_value['pwml_auto'] < self.current_value['pwmr_auto']:
+                        # Turn right
+                        heading_diff = math.radians(5)
+                        lat_diff = 0.00001 * math.cos(math.radians(self.current_value['heading'] - heading_diff))
+                        lng_diff = 0.00001 * math.sin(math.radians(self.current_value['heading'] - heading_diff))
+                        self.current_value['heading'] -= math.degrees(heading_diff)
+                    elif self.current_value['pwml_auto'] > self.current_value['pwmr_auto']:
+                        # Turn left
+                        heading_diff = math.radians(5)
+                        lat_diff = 0.00001 * math.cos(math.radians(self.current_value['heading'] + heading_diff))
+                        lng_diff = 0.00001 * math.sin(math.radians(self.current_value['heading'] + heading_diff))
+                        self.current_value['heading'] += math.degrees(heading_diff)
 
-                else:
-                    print("error")
+                    else:
+                        print("error")
 
-                # lat_distance = haversine((self.current_value['latitude'], self.current_value['longitude']),
-                #                          (self.current_value['dest_latitude'], self.current_value['dest_longitude']),
-                #                          unit='m')
+                    # lat_distance = haversine((self.current_value['latitude'], self.current_value['longitude']),
+                    #                          (self.current_value['dest_latitude'], self.current_value['dest_longitude']),
+                    #                          unit='m')
 
-                self.current_value['latitude'] += lat_diff
-                self.current_value['longitude'] += lng_diff
+                    self.current_value['latitude'] = round(lat_diff + self.current_value['latitude'], 8)
+                    self.current_value['longitude'] = round(lng_diff + self.current_value['longitude'], 8)
 
-                if self.distance_to_target <= 10:
-                    # Stop the boat
-                    self.current_value['pwml_auto'] = 1500
-                    self.current_value['pwmr_auto'] = 1500
-                    print("Boat has reached the destination!")
-                    break
+                    if self.distance_to_target <= 10:
+                        # Stop the boat
+                        self.current_value['pwml_auto'] = 1500
+                        self.current_value['pwmr_auto'] = 1500
+                        print("Boat has reached the destination!")
+                        break
+                    # Update current position
 
-                # Update current position
-
-                time.sleep(1)
-            except:
-                print("Nope")
-                time.sleep(1)
+                    time.sleep(1)
+                except Exception as E:
+                    print("simulator Error : ", E)
+                    time.sleep(1)
 
 
     def thread_start(self):
@@ -358,7 +359,7 @@ class boat:
         t2 = threading.Thread(target=self.serial_nucleo)
         t3 = threading.Thread(target=self.socket_pc)
         t4 = threading.Thread(target=self.auto_driving)
-        t5 = threading.Thread(target=self.simulator)
+        # t5 = threading.Thread(target=self.simulator)
         while True:
             # print("executed")
             if self.end == 1:
@@ -386,10 +387,10 @@ class boat:
                     t4 = threading.Thread(target=self.auto_driving)
                     t4.start()
                     print("restart t4")
-                if not t5.is_alive():
-                    t5 = threading.Thread(target=self.simulator)
-                    t5.start()
-                    print("restart t5")
+                # if not t5.is_alive():
+                #     t5 = threading.Thread(target=self.simulator)
+                #     t5.start()
+                #     print("restart t5")
 
             except queue.Empty:
                 # print("Queue is Empty")
@@ -403,7 +404,7 @@ class boat:
                 # t3.join()
                 # t4.join()
 
-            print("thread alive? t1 : {}, t2 : {}, t3 : {}, t4 : {}, t5 : {}".format(t1.is_alive(), t2.is_alive(), t3.is_alive(), t4.is_alive(), t5.is_alive()))
+            print("thread alive? t1 : {}, t2 : {}, t3 : {}, t4 : {}".format(t1.is_alive(), t2.is_alive(), t3.is_alive(), t4.is_alive()))
 
             time.sleep(5)
 
