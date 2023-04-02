@@ -187,7 +187,7 @@ class boat:
         server_address = (host, port)
         server_socket_pc.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server_socket_pc.bind(server_address)
-        server_socket_pc.listen(1)
+        server_socket_pc.listen(5)
 
         try:
             while True:

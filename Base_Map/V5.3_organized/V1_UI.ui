@@ -132,7 +132,14 @@
         <item>
          <widget class="QPushButton" name="btn_pointing">
           <property name="text">
-           <string>Pointing START/STOP</string>
+           <string>Pointing STOP</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btn_simulation">
+          <property name="text">
+           <string>Simulation START</string>
           </property>
          </widget>
         </item>
@@ -306,6 +313,103 @@
           </item>
           <item>
            <widget class="QLineEdit" name="edit_pwmr_auto"/>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QLabel" name="label_5">
+          <property name="text">
+           <string>시뮬레이션 PWM</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_14">
+          <item>
+           <widget class="QLabel" name="lbl_pwml_auto_2">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>40</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>40</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>왼쪽</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="edit_pwml_simulation">
+            <property name="text">
+             <string/>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="lbl_pwmr_auto_2">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>40</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>40</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>오른쪽</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="edit_pwmr_simulation"/>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_13">
+          <item>
+           <widget class="QLabel" name="lbl_distance">
+            <property name="minimumSize">
+             <size>
+              <width>40</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>40</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>거리</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="edit_distance"/>
           </item>
          </layout>
         </item>
@@ -808,12 +912,28 @@
    <slot>stop_driving()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>836</x>
-     <y>359</y>
+     <x>1117</x>
+     <y>374</y>
     </hint>
     <hint type="destinationlabel">
      <x>1025</x>
      <y>716</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>btn_simulation</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>simulator()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>989</x>
+     <y>420</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>564</x>
+     <y>406</y>
     </hint>
    </hints>
   </connection>
@@ -825,5 +945,6 @@
   <slot>delete_item()</slot>
   <slot>start_driving()</slot>
   <slot>stop_driving()</slot>
+  <slot>simulator()</slot>
  </slots>
 </ui>

@@ -7,6 +7,7 @@ import threading
 import serial
 import json
 import random
+import select
 
 class boat:
     def __init__(self):
@@ -40,16 +41,10 @@ class boat:
         self.driveindex = 0
         self.recDataPc1 = "0x6,DX,37.13457284,127.98545235,SELF,0,0x3"
 
-        ## GNSS
-        # self.current_value = {'mode': None, 'pwml': None, 'pwmr': None, "latitude": None, "longitude": None,
-        #                     'velocity': None,
-        #                     'heading': None, 'roll': None, 'pitch': None, 'validity': None, 'time': None, 'IP': None,
-        #                     'com_status': None, 'date' : None}
-
-        self.current_value = {'mode': "SELF", 'pwml': None, 'pwmr': None, 'pwml_auto' : None, 'pwmr_auto' : None, "latitude": 37.633173, "longitude": 127.077618,
+        self.current_value = {'mode': "SELF", 'pwml': None, 'pwmr': None, 'pwml_auto' : None, 'pwmr_auto' : None, "latitude": 37.633173, "longitude": 127.077618, 'dest_latitude' : None, 'dest_longitude' : None,
                          'velocity': None,
                          'heading': 0, 'roll': None, 'pitch': None, 'validity': None, 'time': None, 'IP': None,
-                         'com_status': None, 'date': None, 'dest_latitude' : None, 'dest_longitude' : None}
+                         'com_status': None, 'date': None, 'distance' : None}
 
         # 'dest_latitude': None, 'dest_longitude': None,
         self.message = None
@@ -69,7 +64,7 @@ class boat:
                 # print("self.running running")
                 if ser_gnss.in_waiting > 0:
                     data = ser_gnss.readline().decode().strip()
-                    print("GNSS > Jetson : ",data)
+                    # print("GNSS > Jetson : ",data)
                     if data.startswith('$'):
                         tokens = data.split(',')
 
@@ -82,8 +77,19 @@ class boat:
 
                                 self.current_value['validity'] = tokens[2] ## A = valid, V = not Valid
 
-                                self.current_value['latitude'] = float(tokens[3])
-                                self.current_value['longitude'] = float(tokens[5])
+                                lat_min = float(tokens[3])
+                                lat_deg = int(lat_min / 100)
+                                lat_min -= lat_deg * 100
+                                lat = lat_deg + lat_min / 60
+                                self.current_value['latitude'] = round(lat,8)
+
+                                lon_sec = float(tokens[5])
+                                lon_deg = int(lon_sec / 100)
+                                lon_min = (lon_sec / 100 - lon_deg) * 100
+
+                                lon = lon_deg + lon_min / 60
+                                self.current_value['longitude'] = round(lon, 8)
+
                                 self.current_value['velocity'] = float(tokens[7])
                             except ValueError:
                                 continue
@@ -97,14 +103,14 @@ class boat:
                                 self.current_value['pitch'] = float(tokens[6])
 
                             except ValueError:
-                                print("GNSS >> position fix 문제")
+                                # print("GNSS >> position fix 문제")
                                 self.current_value['heading'] = None
                                 self.current_value['roll'] = None
                                 self.current_value['pitch'] = None
 
                         else:
                             print("GNSS 수신 상태 불량")
-                        print("self.current value : ", self.current_value)
+                        # print("self.current value : ", self.current_value)
 
                         data_counter += 1
                         if data_counter % 2 == 0:
@@ -136,8 +142,8 @@ class boat:
 
             while True:
                 mode_str = self.current_value['mode']
-                pwm_left_auto = int(self.current_value['pwml_auto'] if self.current_value['pwml_auto'] is not None else random.randint(1500,2000))
-                pwm_right_auto = int(self.current_value['pwmr_auto'] if self.current_value['pwmr_auto'] is not None else random.randint(1500,2000))
+                pwm_left_auto = int(self.current_value['pwml_auto'] if self.current_value['pwml_auto'] is not None else 0)
+                pwm_right_auto = int(self.current_value['pwmr_auto'] if self.current_value['pwmr_auto'] is not None else 0)
 
                 ###여기는 Jetson >> Nucleo 인데, 무조건 pwm_auto값만 보내는거, 그냥 pwm값은 보낼 필요가 없음 :: 현재 랜덤값 나중에는 else random.randint에 값 제대로 해야함, 즉 1500 or 0
                 data_str = f"mode:{mode_str},pwm_left:{pwm_left_auto},pwm_right:{pwm_right_auto}\n".strip()
@@ -170,7 +176,7 @@ class boat:
                     except:
                         pass
 
-                time.sleep(0.01) ## delay없으면 serial에 쓰기전에 가져가 버림
+                time.sleep(0.02) ## delay없으면 serial에 쓰기전에 가져가 버림
 
         except Exception as e:
             print("Nucleo : ", e)
@@ -180,7 +186,7 @@ class boat:
             # ser_nucleo.close() #serial은 알아서 변수가 없어지나봄
             pass
 
-    def socket_pc(self, client_socket = 'localhost', ip = 5001):  # rasp > pc
+    def socket_pc(self, client_socket='localhost', ip=5001):  # rasp > pc
         server_socket_pc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         host = client_socket
         port = ip
@@ -199,38 +205,38 @@ class boat:
                     print(f"Connected by {client_address}")
 
                     while True:
-                        # 클라이언트로부터 데이터 수신
-                        data = client_socket.recv(1024)
+                        # 소켓이 읽기 가능한지 확인
+                        ready_to_read, ready_to_write, _ = select.select([client_socket], [client_socket], [], 0.5)
+                        if ready_to_read:
+                            # 클라이언트로부터 데이터 수신
+                            data = client_socket.recv(1024).strip()
+                            # print(data)
+                            # 수신한 데이터가 없으면 반복문 종료
+                            try:
+                                received_dict = json.loads(data.decode('utf-8'))
+                                # print("COM >> Jetson, received_dict : ", received_dict)
+                                self.current_value['dest_latitude'] = received_dict['dest_latitude']
+                                self.current_value['dest_longitude'] = received_dict['dest_longitude']
+                                if self.current_value['dest_latitude'] is not None and self.current_value['dest_longitude'] and self.current_value['mode'] == "AUTO":
+                                    self.is_driving = True
+                                else:
+                                    self.is_driving = False
 
-                        # 수신한 데이터가 없으면 반복문 종료
-                        if not data:
-                            break
+                            except:
+                                print("not get data yet")
 
-                        try:
-                            received_dict = json.loads(data.decode('utf-8'))
-                            # print("COM >> Jetson, received_dict : ", received_dict)
-                            self.current_value['dest_latitude'] = received_dict['dest_latitude']
-                            self.current_value['dest_longitude'] = received_dict['dest_longitude']
-                            if self.current_value['dest_latitude'] is not None and self.current_value['dest_longitude'] and self.current_value['mode'] == "AUTO":
-                                self.is_driving = True
+                        if ready_to_write:
+                            # 클라이언트에게 데이터 전송
+                            if type(self.current_value) == dict:
+                                message = self.current_value
+                                message = json.dumps(message)
+                                client_socket.sendall(message.encode())
                             else:
-                                self.is_driving = False
-
-                        except:
-                            print("not get data yet")
-                        # 수신한 데이터 출력
-
-                        # 클라이언트에게 데이터 전송
-                        message = self.current_value
-
-                        message = json.dumps(message)
-                        # print("Jetson >> COM, send : ",message)
-                        client_socket.sendall(message.encode())
+                                print("딕트형이 아니네>?")
 
                         time.sleep(1)
 
-                except Exception as e:
-                    # 예외 처리
+                except (Exception) as e:
                     print(f"pc 연결 Error: {e}")
                 finally:
                     # 클라이언트 소켓 닫기
@@ -248,29 +254,39 @@ class boat:
         print("in the auto driving")
         send_well = False
         last_print_time = time.time()  # 마지막으로 출력한 시간 초기화
+
+
         while True:
-            while not send_well:
+            # while not send_well:
+            #     ## 밑의 한 줄은 시뮬레이션 용 currentdata 초기화
+            #     self.current_value['heading'] = 0
+            #     print("self.current_value \n", self.current_value)
+            #     try:
+            #         if self.current_value['latitude'] is not None and self.current_value['longitude'] is not None and self.current_value['heading'] is not None and self.current_value['dest_latitude'] is not None and self.current_value['dest_longitude'] is not None:
+            #             # print("auto driving")
+            #             send_well = True
+            #         else:
+            #             time.sleep(1)
+            #             print("하나 이상의 데이터를 수신받지 못함, auto driving 실행 안 함")
+            #             # return
+            #     except Exception as E:
+            #         print(E)
+            #         print("하나 이상의 데이터를 수신받지 못함, auto driving 실행 안 함2")
+            #         time.sleep(1)
+
+            if (self.current_value['latitude'] is not None and self.current_value['longitude'] is not None and
+                    self.current_value['dest_latitude'] is not None and self.current_value[
+                        'dest_longitude'] is not None):
+                current_latitude = float(self.current_value['latitude'])
+                current_longitude = float(self.current_value['longitude'])
                 try:
-                    if self.current_value['latitude'] is not None and self.current_value['longitude'] is not None and self.current_value['heading'] is not None and self.current_value['dest_latitude'] is not None and self.current_value['dest_longitude'] is not None:
-                        # print("auto driving")
-                        send_well = True
-                    else:
-                        time.sleep(1)
-                        # print("하나 이상의 데이터를 수신받지 못함, auto driving 실행 안 함")
-                        # return
-                except Exception as E:
-                    print(E)
-                    # print("하나 이상의 데이터를 수신받지 못함, auto driving 실행 안 함2")
-                    time.sleep(1)
-                    # return
-
-            current_latitude = float(self.current_value['latitude'])
-            current_longitude = float(self.current_value['longitude'])
-            current_heading = float(self.current_value['heading'])
-            destination_latitude = float(self.current_value['dest_latitude'])
-            destination_longitude = float(self.current_value['dest_longitude'])
-
-
+                    current_heading = float(self.current_value['heading'])
+                except:
+                    current_heading = 0
+                destination_latitude = float(self.current_value['dest_latitude'])
+                destination_longitude = float(self.current_value['dest_longitude'])
+            else:
+                return
 
             # 헤딩 값을 -180에서 180 사이의 값으로 변환
             if current_heading > 180:
@@ -278,7 +294,8 @@ class boat:
 
             # Haversine 공식을 사용하여 두 지점 사이의 거리를 계산
             self.distance_to_target = haversine((current_latitude, current_longitude),
-                                           (destination_latitude, destination_longitude), unit='m')
+                                                (destination_latitude, destination_longitude), unit='m')
+            self.current_value['distance'] = float(self.distance_to_target)
 
             # 선박과 목적지가 이루는 선의 자북에 대한 각도 계산
             target_angle = math.degrees(
@@ -322,53 +339,8 @@ class boat:
                     last_print_time = current_time  # 마지막 출력 시간 업데이트
                 except:
                     pass
+            print("self.current_value : \n{}".format(self.current_value))
             time.sleep(0.1)
-
-    def simulator(self):
-        if self.distance_to_target:
-            while True:
-                # print("simulator start")
-                try:
-                    if self.current_value['pwml_auto'] == self.current_value['pwmr_auto'] and self.current_value['pwmr_auto'] != 1500:
-                        # Go straight
-                        lat_diff = 0.00001 * math.cos(math.radians(self.current_value['heading']))
-                        lng_diff = 0.00001 * math.sin(math.radians(self.current_value['heading']))
-                    elif self.current_value['pwml_auto'] < self.current_value['pwmr_auto']:
-                        # Turn right
-                        heading_diff = math.radians(5)
-                        lat_diff = 0.00001 * math.cos(math.radians(self.current_value['heading'] - heading_diff))
-                        lng_diff = 0.00001 * math.sin(math.radians(self.current_value['heading'] - heading_diff))
-                        self.current_value['heading'] -= math.degrees(heading_diff)
-                    elif self.current_value['pwml_auto'] > self.current_value['pwmr_auto']:
-                        # Turn left
-                        heading_diff = math.radians(5)
-                        lat_diff = 0.00001 * math.cos(math.radians(self.current_value['heading'] + heading_diff))
-                        lng_diff = 0.00001 * math.sin(math.radians(self.current_value['heading'] + heading_diff))
-                        self.current_value['heading'] += math.degrees(heading_diff)
-
-                    else:
-                        print("error")
-
-                    # lat_distance = haversine((self.current_value['latitude'], self.current_value['longitude']),
-                    #                          (self.current_value['dest_latitude'], self.current_value['dest_longitude']),
-                    #                          unit='m')
-
-                    self.current_value['latitude'] = round(lat_diff + self.current_value['latitude'], 8)
-                    self.current_value['longitude'] = round(lng_diff + self.current_value['longitude'], 8)
-
-                    if self.distance_to_target <= 10:
-                        # Stop the boat
-                        self.current_value['pwml_auto'] = 1500
-                        self.current_value['pwmr_auto'] = 1500
-                        print("Boat has reached the destination!")
-                        break
-                    # Update current position
-
-                    time.sleep(1)
-                except Exception as E:
-                    print("simulator Error : ", E)
-                    time.sleep(1)
-
 
     def thread_start(self):
         t1 = threading.Thread(target=self.serial_gnss)
