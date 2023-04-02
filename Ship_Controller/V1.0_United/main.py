@@ -22,6 +22,7 @@ import queue
 import json
 import traceback
 import select
+import re
 
 
 form_class = uic.loadUiType("V1_UI.ui")[0]
@@ -29,12 +30,9 @@ app = QtWidgets.QApplication(sys.argv)
 img = Image.open('image.png')
 
 class Worker(QtCore.QThread):
-    data_received = pyqtSignal(object)
-
     def run(self):
         try:
-            self.message = {"mode": None, "dest_latitude": None, "dest_longitude": None}
-            # self.sensor_data = None
+            self.message = {"mode_jetson": None, "dest_latitude": None, "dest_longitude": None}
 
             while True:
                 host, port = 'localhost', 5001
@@ -63,13 +61,15 @@ class Worker(QtCore.QThread):
                         #     # 데이터 수신
                             data = client_socket.recv(1024).decode()
                             print("여기 확인 : ", data)
-                            self.data = json.loads(data)
+                            json_objects = re.findall(r'\{.*?\}', data)
+                            last_json_object = json_objects[-1]
+                            self.data = json.loads(last_json_object)
+                            # self.data = json.loads(data)
                             print("자꾸 잘못 받아오는 부분 self.data : ", self.data )
 
                         print("Jetson >> COM : ", self.data)
                         print("COM >> Jetson, send : ", message.encode())
-                        time.sleep(1)
-
+                        time.sleep(0.1)
 
                     except (socket.error, Exception) as e:
                         print(f"Error: {e}")
@@ -98,7 +98,7 @@ class Window(QMainWindow, form_class):
         self.simulation_pwml_auto = None
         self.simulation_pwmr_auto = None
         self.flag_simulation_data_init = False
-        self.sensor_data = {'mode': "SELF", 'pwml': None, 'pwmr': None, 'pwml_auto' : None, 'pwmr_auto' : None, "latitude": 37.63124688, "longitude": 127.07633361, 'dest_latitude': None, 'dest_longitude' : None,
+        self.sensor_data = {'mode_jetson': "SELF",'mode_nucleo': "SELF", 'pwml': None, 'pwmr': None, 'pwml_auto' : None, 'pwmr_auto' : None, "latitude": 37.63124688, "longitude": 127.07633361, 'dest_latitude': None, 'dest_longitude' : None,
                             'velocity': None,
                             'heading': 0, 'roll': None, 'pitch': None, 'validity': None, 'time': None, 'IP': None,
                             'com_status': None, 'date' : None, 'distance' : None}
@@ -157,14 +157,15 @@ class Window(QMainWindow, form_class):
 
         print("nope")
 
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_data)
-        self.timer.timeout.connect(self.draw_ship)
-        self.timer.timeout.connect(self.route_generate)
-        self.timer.timeout.connect(self.show_sensor_data)
-        # self.timer.timeout.connect(self.auto_driving)
-        # self.timer.timeout.connect(self.update_ui)
-        self.timer.start(1000)  # 5 seconds
+        self.timer100 = QTimer(self)
+        self.timer100.timeout.connect(self.update_data)
+        self.timer100.timeout.connect(self.show_sensor_data)
+        self.timer100.start(100)  # 5 seconds
+
+        self.timer1000 = QTimer(self)
+        self.timer1000.timeout.connect(self.draw_ship)
+        self.timer1000.timeout.connect(self.route_generate)
+        self.timer1000.start(1000)
 
     def update_data(self):
         try:
@@ -355,7 +356,7 @@ class Window(QMainWindow, form_class):
         self.model.removeRow(index.row())
 
     def stop_driving(self):
-        self.worker.message = {"mode" : None, "dest_latitude" : None, "dest_longitude" : None}
+        self.worker.message = {"mode_jetson" : "SELF", "dest_latitude" : None, "dest_longitude" : None}
         self.sensor_data["dest_latitude"] = None
         self.sensor_data["dest_longitude"] = None
         self.sensor_data["pwml_auto"] = None
@@ -365,7 +366,6 @@ class Window(QMainWindow, form_class):
         self.edit_pwmr_auto.setText("None")
 
     def show_sensor_data(self):
-
         try:
             for key, value in self.sensor_data.items():
                 try:
@@ -382,10 +382,9 @@ class Window(QMainWindow, form_class):
 
                 except:
                     print("not showing data : ", key)
-
+            self.edit_distance_simulation.setText(str(self.simulation_distance_to_target))
             self.edit_pwml_simulation.setText(str(self.simulation_pwml_auto))
             self.edit_pwmr_simulation.setText(str(self.simulation_pwmr_auto))
-            print("done?")
         except:
             print("why?")
 
@@ -398,7 +397,7 @@ class Window(QMainWindow, form_class):
             # self.edit_distance.setText(str())
             self.sensor_data['dest_latitude'] = destination_latitude
             self.sensor_data['dest_longitude'] = destination_longitude
-            self.worker.message = {"mode" : None, "dest_latitude" : float(self.sensor_data['dest_latitude']), "dest_longitude" : float(self.sensor_data['dest_longitude'])}
+            self.worker.message = {"mode_jetson" : None, "dest_latitude" : float(self.sensor_data['dest_latitude']), "dest_longitude" : float(self.sensor_data['dest_longitude'])}
             print("self.worker.message : ", self.worker.message)
         except:
             return print("No destination")
@@ -406,7 +405,7 @@ class Window(QMainWindow, form_class):
     def start_driving(self):
 
         try:
-            self.worker.message = {"mode": "AUTO", "dest_latitude": float(self.sensor_data['dest_latitude']),
+            self.worker.message = {"mode_jetson": "AUTO", "dest_latitude": float(self.sensor_data['dest_latitude']),
                                    "dest_longitude": float(self.sensor_data['dest_longitude'])}
             print("self.worker.message : ", self.worker.message)
 
@@ -458,14 +457,19 @@ class Window(QMainWindow, form_class):
 
     def stop_simulation(self):
         self.flag_simulation = False
-        self.worker.message['mode'] = None
+        self.worker.message['mode_jetson'] = "SELF"
+        self.simulation_distance_to_target = None
+        self.simulation_pwml_auto = None
+        self.simulation_pwmr_auto = None
+        self.edit_distance_simulation.setText("0")
+
         if self.simulation_thread is not None:
             self.simulation_thread.join()
 
     def simulation(self):
         self.flag_simulation = True
 
-        self.worker.message = {"mode": "SMLT", "dest_latitude": float(self.sensor_data['dest_latitude']),
+        self.worker.message = {"mode_jetson": "SMLT", "dest_latitude": float(self.sensor_data['dest_latitude']),
                                "dest_longitude": float(self.sensor_data['dest_longitude'])}
 
         try:

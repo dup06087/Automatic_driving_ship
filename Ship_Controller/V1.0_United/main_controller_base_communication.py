@@ -30,7 +30,7 @@ class boat:
         # enddriving="0"
         self.driveindex = 0
 
-        self.current_value = {'mode': "SELF", 'pwml': None, 'pwmr': None, 'pwml_auto' : None, 'pwmr_auto' : None, "latitude": 37.633173, "longitude": 127.077618, 'dest_latitude' : None, 'dest_longitude' : None,
+        self.current_value = {'mode_jetson': "SELF",'mode_nucleo': "SELF", 'pwml': None, 'pwmr': None, 'pwml_auto' : None, 'pwmr_auto' : None, "latitude": 37.633173, "longitude": 127.077618, 'dest_latitude' : None, 'dest_longitude' : None,
                          'velocity': None,
                          'heading': 0, 'roll': None, 'pitch': None, 'validity': None, 'time': None, 'IP': None,
                          'com_status': None, 'date': None, 'distance' : None}
@@ -130,7 +130,7 @@ class boat:
             last_print_time = time.time()  # 마지막으로 출력한 시간 초기화
 
             while True:
-                mode_str = self.current_value['mode']
+                mode_str = self.current_value['mode_nucleo']
                 pwm_left_auto = int(self.current_value['pwml_auto'] if self.current_value['pwml_auto'] is not None else 0)
                 pwm_right_auto = int(self.current_value['pwmr_auto'] if self.current_value['pwmr_auto'] is not None else 0)
 
@@ -147,7 +147,7 @@ class boat:
                     try:
                         parsed_data = dict(item.split(":") for item in data.split(","))
 
-                        self.current_value['mode'] = str(parsed_data.get('mode', 'UNKNOWN').strip())
+                        self.current_value['mode_nucleo'] = str(parsed_data.get('mode', 'UNKNOWN').strip())
                         self.current_value['pwml'] = int(parsed_data.get('pwm_left', '0').strip())
                         self.current_value['pwmr'] = int(parsed_data.get('pwm_right', '0').strip())
 
@@ -158,7 +158,7 @@ class boat:
                 if current_time - last_print_time >= 1:  # 마지막 출력 후 1초 경과 여부 확인
                     try:
                         print("Jetson >> Nucleo, send : ", data_str.encode())
-                        print("Nucleo >> Jetson, Received : ", f"mode:{self.current_value['mode']},pwm_left:{self.current_value['pwml']},pwm_right:{self.current_value['pwmr']}")
+                        print("Nucleo >> Jetson, Received : ", f"mode:{self.current_value['mode_jetson']},pwm_left:{self.current_value['pwml']},pwm_right:{self.current_value['pwmr']}")
                         last_print_time = current_time  # 마지막 출력 시간 업데이트
                     except:
                         pass
@@ -201,18 +201,19 @@ class boat:
                             # 수신한 데이터가 없으면 반복문 종료
                             try:
                                 received_dict = json.loads(data.decode('utf-8'))
-                                self.current_value['mode'] = received_dict['mode']
+                                self.current_value['mode_jetson'] = received_dict['mode_jetson']
                                 self.current_value['dest_latitude'] = float(received_dict['dest_latitude'])
                                 self.current_value['dest_longitude'] = float(received_dict['dest_longitude'])
-                                print("PC >> Jetson, received_dict : ", received_dict)
+                                # print("PC >> Jetson, received_dict : ", received_dict)
 
-                                if self.current_value['dest_latitude'] is not None and self.current_value['dest_longitude'] and self.current_value['mode'] == "AUTO":
+                                if self.current_value['dest_latitude'] is not None and self.current_value['dest_longitude'] and self.current_value['mode_jetson'] == "AUTO":
                                     self.is_driving = True
                                 else:
                                     self.is_driving = False
 
                             except:
-                                print("not get data yet")
+                                # print("not get data yet")
+                                pass
 
                         if ready_to_write:
                             # 클라이언트에게 데이터 전송
@@ -223,7 +224,7 @@ class boat:
                             else:
                                 print("딕트형이 아니네>?")
 
-                        time.sleep(1)
+                        time.sleep(0.1)
 
                 except (Exception) as e:
                     print(f"pc 연결 Error: {e}")
@@ -245,23 +246,6 @@ class boat:
         last_print_time = time.time()  # 마지막으로 출력한 시간 초기화
 
         while True:
-            # while not send_well:
-            #     ## 밑의 한 줄은 시뮬레이션 용 currentdata 초기화
-            #     self.current_value['heading'] = 0
-            #     print("self.current_value \n", self.current_value)
-            #     try:
-            #         if self.current_value['latitude'] is not None and self.current_value['longitude'] is not None and self.current_value['heading'] is not None and self.current_value['dest_latitude'] is not None and self.current_value['dest_longitude'] is not None:
-            #             # print("auto driving")
-            #             send_well = True
-            #         else:
-            #             time.sleep(1)
-            #             print("하나 이상의 데이터를 수신받지 못함, auto driving 실행 안 함")
-            #             # return
-            #     except Exception as E:
-            #         print(E)
-            #         print("하나 이상의 데이터를 수신받지 못함, auto driving 실행 안 함2")
-            #         time.sleep(1)
-
             if (self.current_value['latitude'] is not None and self.current_value['longitude'] is not None and
                     self.current_value['dest_latitude'] is not None and self.current_value[
                         'dest_longitude'] is not None):
