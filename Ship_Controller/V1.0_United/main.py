@@ -67,7 +67,7 @@ class Worker(QtCore.QThread):
                             print("자꾸 잘못 받아오는 부분 self.data : ", self.data )
 
                         print("Jetson >> COM : ", self.data)
-                        print("COM >> Jetson, send : ", message)
+                        print("COM >> Jetson, send : ", message.encode())
                         time.sleep(1)
 
 

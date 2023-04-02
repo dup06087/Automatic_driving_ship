@@ -139,7 +139,6 @@ class boat:
                 '''nucleo는 data_str을 계속 받아, pwm_left_auto, pwm_right_auto로 둔다.'''
                 # 데이터 전송
                 ser_nucleo.write(data_str.encode())
-
                 if ser_nucleo.in_waiting > 0:
                     # 데이터 읽어오기
                     data = ser_nucleo.readline().decode('utf-8').strip()  # 줄 바꿈 문자를 기준으로 데이터 읽기
@@ -158,14 +157,13 @@ class boat:
                 current_time = time.time()
                 if current_time - last_print_time >= 1:  # 마지막 출력 후 1초 경과 여부 확인
                     try:
-                        # print("Jetson >> Nucleo, send : ", data_str)
-                        # print("Nucleo >> Received : ", data.decode('utf-8').strip())
-                        # print("Nucleo >> Jetson, Received : ", f"mode:{self.current_value['mode']},pwm_left:{self.current_value['pwml']},pwm_right:{self.current_value['pwmr']}")
+                        print("Jetson >> Nucleo, send : ", data_str.encode())
+                        print("Nucleo >> Jetson, Received : ", f"mode:{self.current_value['mode']},pwm_left:{self.current_value['pwml']},pwm_right:{self.current_value['pwmr']}")
                         last_print_time = current_time  # 마지막 출력 시간 업데이트
                     except:
                         pass
 
-                time.sleep(0.02) ## delay없으면 serial에 쓰기전에 가져가 버림
+                time.sleep(0.1) ## delay없으면 serial에 쓰기전에 가져가 버림
 
         except Exception as e:
             print("Nucleo : ", e)
@@ -203,9 +201,11 @@ class boat:
                             # 수신한 데이터가 없으면 반복문 종료
                             try:
                                 received_dict = json.loads(data.decode('utf-8'))
-                                # print("COM >> Jetson, received_dict : ", received_dict)
-                                self.current_value['dest_latitude'] = received_dict['dest_latitude']
-                                self.current_value['dest_longitude'] = received_dict['dest_longitude']
+                                self.current_value['mode'] = received_dict['mode']
+                                self.current_value['dest_latitude'] = float(received_dict['dest_latitude'])
+                                self.current_value['dest_longitude'] = float(received_dict['dest_longitude'])
+                                print("PC >> Jetson, received_dict : ", received_dict)
+
                                 if self.current_value['dest_latitude'] is not None and self.current_value['dest_longitude'] and self.current_value['mode'] == "AUTO":
                                     self.is_driving = True
                                 else:
@@ -243,7 +243,6 @@ class boat:
         print("in the auto driving")
         send_well = False
         last_print_time = time.time()  # 마지막으로 출력한 시간 초기화
-
 
         while True:
             # while not send_well:
@@ -328,7 +327,7 @@ class boat:
                     last_print_time = current_time  # 마지막 출력 시간 업데이트
                 except:
                     pass
-            print("self.current_value : \n{}".format(self.current_value))
+            # print("self.current_value : \n{}".format(self.current_value))
             time.sleep(0.1)
 
     def thread_start(self):
