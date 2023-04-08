@@ -29,41 +29,124 @@ form_class = uic.loadUiType("V1_UI.ui")[0]
 app = QtWidgets.QApplication(sys.argv)
 img = Image.open('image.png')
 
+# class Worker(QtCore.QThread):
+#     def __init__(self):
+#         super().__init__()
+#         self.message = {"mode_jetson": "SELF", "dest_latitude": None, "dest_longitude": None}
+#         # self.data = None
+#         self.data = {"mode_jetson": "SELF", "dest_latitude": None, "dest_longitude": None}
+#
+#     def run(self):
+#         try:
+#             recv_host, recv_port = 'localhost', 5001  ### client ### receive from Jetson <> socket_pc_receive
+#             send_host, send_port = 'localhost', 5002  ### client ### send to Jetson <> socket_pc_send
+#             stop_event = threading.Event()
+#             recv_socket = None
+#             send_socket = None
+#             print("receiving readying")
+#
+#             data_buffer = b''  # 데이터 버퍼 추가
+#
+#             while not stop_event.is_set():
+#                 try:
+#                     if not recv_socket:
+#                         recv_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+#                         recv_socket.connect((recv_host, recv_port))
+#                         print("Connected to recv server")
+#
+#                     if not send_socket:
+#                         send_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+#                         send_socket.connect((send_host, send_port))
+#                         print("Connected to send server")
+#
+#                     ready_to_read, ready_to_write, _ = select.select([recv_socket], [send_socket], [], 1)
+#                     # 5001번 포트 # recv
+#                     ### client ### receive from Jetson <> socket_pc_receive
+#                     if ready_to_read:
+#                         data = recv_socket.recv(1024)
+#                         data_buffer += data
+#
+#                         if b'\n' in data_buffer:
+#                             data_line, data_buffer = data_buffer.split(b'\n', 1)
+#                             try:
+#                                 received_dict = json.loads(data_line.decode('utf-8'))
+#                                 print("Jetson >> PC", received_dict)
+#                             except (json.JSONDecodeError, TypeError, ValueError):
+#                                 print("Failed to decode received data from client.")
+#                             else:
+#                                 self.data = received_dict  # 수신한 데이터 저장
+#
+#                     # 5002번 포트 # send
+#                     ## client ### send to Jetson <> socket_pc_send
+#                     if ready_to_write:
+#                         message = json.dumps(self.message)
+#                         message += '\n'  # 구분자 추가
+#                         send_socket.sendall(message.encode())
+#                         print("COM >> Jetson, send : ", message.encode())
+#
+#                     time.sleep(1)
+#
+#                 except (socket.error, Exception) as e:
+#                     print(f"Error: {e}")
+#                     traceback.print_exc()
+#                     recv_socket = None
+#                     send_socket = None
+#                     time.sleep(5)
+#
+#             if recv_socket:
+#                 recv_socket.close()
+#
+#             if send_socket:
+#                 send_socket.close()
+#
+#         except:
+#             print("pass")
+
 class Worker(QtCore.QThread):
     def __init__(self):
         super().__init__()
         self.message = {"mode_jetson": "SELF", "dest_latitude": None, "dest_longitude": None}
-        # self.data = None
         self.data = {"mode_jetson": "SELF", "dest_latitude": None, "dest_longitude": None}
 
     def run(self):
-        try:
-            recv_host, recv_port = 'localhost', 5001  ### client ### receive from Jetson <> socket_pc_receive
-            send_host, send_port = 'localhost', 5002  ### client ### send to Jetson <> socket_pc_send
-            stop_event = threading.Event()
-            recv_socket = None
-            send_socket = None
-            print("receiving readying")
+        recv_host, recv_port = 'localhost', 5001
+        send_host, send_port = 'localhost', 5002
+        stop_event = threading.Event()
+        recv_socket = None
+        send_socket = None
+        print("receiving readying")
 
-            data_buffer = b''  # 데이터 버퍼 추가
+        data_buffer = b''
 
-            while not stop_event.is_set():
-                try:
-                    if not recv_socket:
-                        recv_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                        recv_socket.connect((recv_host, recv_port))
-                        print("Connected to recv server")
+        while not stop_event.is_set():
+            try:
+                if not recv_socket:
+                    recv_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    recv_socket.settimeout(5)
+                    recv_socket.connect((recv_host, recv_port))
+                    print("Connected to recv server")
 
-                    if not send_socket:
-                        send_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                        send_socket.connect((send_host, send_port))
-                        print("Connected to send server")
+                if not send_socket:
+                    send_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    send_socket.settimeout(5)
+                    send_socket.connect((send_host, send_port))
+                    print("Connected to send server")
 
-                    ready_to_read, ready_to_write, _ = select.select([recv_socket], [send_socket], [], 1)
-                    # 5001번 포트 # recv
-                    ### client ### receive from Jetson <> socket_pc_receive
-                    if ready_to_read:
+                ready_to_read, ready_to_write, _ = select.select([recv_socket], [send_socket], [], 1)
+
+                if ready_to_read:
+                    try:
                         data = recv_socket.recv(1024)
+                    except socket.timeout:
+                        print("Receive timeout. Trying again...")
+                        continue
+                    except ConnectionResetError:
+                        print("Connection reset by remote host. Reconnecting...")
+                        recv_socket.close()
+                        recv_socket = None
+                        continue
+
+                    if data:
                         data_buffer += data
 
                         if b'\n' in data_buffer:
@@ -74,33 +157,57 @@ class Worker(QtCore.QThread):
                             except (json.JSONDecodeError, TypeError, ValueError):
                                 print("Failed to decode received data from client.")
                             else:
-                                self.data = received_dict  # 수신한 데이터 저장
+                                if self.validate_received_data(received_dict):
+                                    self.data = received_dict
+                                else:
+                                    print("Invalid data received. Discarding...")
 
-                    # 5002번 포트 # send
-                    ## client ### send to Jetson <> socket_pc_send
-                    if ready_to_write:
+                if ready_to_write:
+                    if self.validate_message(self.message):
                         message = json.dumps(self.message)
-                        message += '\n'  # 구분자 추가
+                        message += '\n'
                         send_socket.sendall(message.encode())
                         print("COM >> Jetson, send : ", message.encode())
+                    else:
+                        print("Invalid message. Not sending...")
 
-                    time.sleep(1)
+                time.sleep(1)
 
-                except (socket.error, Exception) as e:
-                    print(f"Error: {e}")
-                    traceback.print_exc()
+            except (socket.error, Exception) as e:
+                print(f"Error: {e}")
+                traceback.print_exc()
+                if recv_socket:
+                    recv_socket.close()
                     recv_socket = None
+                if send_socket:
+                    send_socket.close()
                     send_socket = None
-                    time.sleep(5)
+                time.sleep(5)
 
-            if recv_socket:
-                recv_socket.close()
+        if recv_socket:
+            recv_socket.close()
 
-            if send_socket:
-                send_socket.close()
+        if send_socket:
+            send_socket.close()
 
-        except:
-            print("pass")
+    def validate_received_data(self, data):
+        # 데이터 형식 및 값 검증 로직 작성
+        required_keys = ["mode_jetson", "dest_latitude", "dest_longitude"]
+        for key in required_keys:
+            if key not in data:
+                return False
+
+        return True
+
+    def validate_message(self, message):
+        # 메시지 형식 및 값 검증 로직 작성
+        # 예를 들어, 필수 키가 있는지 확인하고, 위도와 경도가 올바른 범위 내에 있는지 확인
+        required_keys = ["mode_jetson", "dest_latitude", "dest_longitude"]
+        for key in required_keys:
+            if key not in message:
+                return False
+
+        return True
 
 class Window(QMainWindow, form_class):
     def __init__(self):
