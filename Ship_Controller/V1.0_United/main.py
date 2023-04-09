@@ -29,79 +29,6 @@ form_class = uic.loadUiType("V1_UI.ui")[0]
 app = QtWidgets.QApplication(sys.argv)
 img = Image.open('image.png')
 
-# class Worker(QtCore.QThread):
-#     def __init__(self):
-#         super().__init__()
-#         self.message = {"mode_jetson": "SELF", "dest_latitude": None, "dest_longitude": None}
-#         # self.data = None
-#         self.data = {"mode_jetson": "SELF", "dest_latitude": None, "dest_longitude": None}
-#
-#     def run(self):
-#         try:
-#             recv_host, recv_port = 'localhost', 5001  ### client ### receive from Jetson <> socket_pc_receive
-#             send_host, send_port = 'localhost', 5002  ### client ### send to Jetson <> socket_pc_send
-#             stop_event = threading.Event()
-#             recv_socket = None
-#             send_socket = None
-#             print("receiving readying")
-#
-#             data_buffer = b''  # 데이터 버퍼 추가
-#
-#             while not stop_event.is_set():
-#                 try:
-#                     if not recv_socket:
-#                         recv_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-#                         recv_socket.connect((recv_host, recv_port))
-#                         print("Connected to recv server")
-#
-#                     if not send_socket:
-#                         send_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-#                         send_socket.connect((send_host, send_port))
-#                         print("Connected to send server")
-#
-#                     ready_to_read, ready_to_write, _ = select.select([recv_socket], [send_socket], [], 1)
-#                     # 5001번 포트 # recv
-#                     ### client ### receive from Jetson <> socket_pc_receive
-#                     if ready_to_read:
-#                         data = recv_socket.recv(1024)
-#                         data_buffer += data
-#
-#                         if b'\n' in data_buffer:
-#                             data_line, data_buffer = data_buffer.split(b'\n', 1)
-#                             try:
-#                                 received_dict = json.loads(data_line.decode('utf-8'))
-#                                 print("Jetson >> PC", received_dict)
-#                             except (json.JSONDecodeError, TypeError, ValueError):
-#                                 print("Failed to decode received data from client.")
-#                             else:
-#                                 self.data = received_dict  # 수신한 데이터 저장
-#
-#                     # 5002번 포트 # send
-#                     ## client ### send to Jetson <> socket_pc_send
-#                     if ready_to_write:
-#                         message = json.dumps(self.message)
-#                         message += '\n'  # 구분자 추가
-#                         send_socket.sendall(message.encode())
-#                         print("COM >> Jetson, send : ", message.encode())
-#
-#                     time.sleep(1)
-#
-#                 except (socket.error, Exception) as e:
-#                     print(f"Error: {e}")
-#                     traceback.print_exc()
-#                     recv_socket = None
-#                     send_socket = None
-#                     time.sleep(5)
-#
-#             if recv_socket:
-#                 recv_socket.close()
-#
-#             if send_socket:
-#                 send_socket.close()
-#
-#         except:
-#             print("pass")
-
 class Worker(QtCore.QThread):
     def __init__(self):
         super().__init__()
@@ -153,7 +80,7 @@ class Worker(QtCore.QThread):
                             data_line, data_buffer = data_buffer.split(b'\n', 1)
                             try:
                                 received_dict = json.loads(data_line.decode('utf-8'))
-                                print("Jetson >> PC", received_dict)
+                                # print("Jetson >> PC", received_dict)
                             except (json.JSONDecodeError, TypeError, ValueError):
                                 print("Failed to decode received data from client.")
                             else:
@@ -171,7 +98,7 @@ class Worker(QtCore.QThread):
                     else:
                         print("Invalid message. Not sending...")
 
-                time.sleep(1)
+                time.sleep(0.1)
 
             except (socket.error, Exception) as e:
                 print(f"Error: {e}")
@@ -224,6 +151,12 @@ class Window(QMainWindow, form_class):
         self.simulation_pwml_auto = None
         self.simulation_pwmr_auto = None
         self.flag_simulation_data_init = False
+
+        # 여기는 draw_ship 초기 변수 >> 지우면 안 됨
+        self.simulation_lat = 37.63124688
+        self.simulation_lon = 127.07633361
+        self.simulation_head = 0
+
         self.sensor_data = {'mode_jetson': "SELF",'mode_chk': "SELF", 'pwml': None, 'pwmr': None, 'pwml_auto' : None, 'pwmr_auto' : None, 'pwml_sim' : None, 'pwmr_sim' : None, "latitude": 37.63124688, "longitude": 127.07633361, 'dest_latitude': None, 'dest_longitude' : None,
                             'velocity': None,
                             'heading': 0, 'roll': None, 'pitch': None, 'validity': None, 'time': None, 'IP': None,
@@ -283,19 +216,20 @@ class Window(QMainWindow, form_class):
 
         print("nope")
 
-        # self.timer100 = QTimer(self)
-        # self.timer100.timeout.connect(self.update_data)
-        # self.timer100.timeout.connect(self.show_sensor_data)
-        # self.timer100.start(100)  # 5 seconds
+        self.timer100 = QTimer(self)
+        self.timer100.timeout.connect(self.update_data)
+        self.timer100.timeout.connect(self.show_sensor_data)
+        self.timer100.start(50)  # 5 seconds
         #
-        # self.timer1000 = QTimer(self)
-        # self.timer1000.timeout.connect(self.draw_ship)
-        # self.timer1000.timeout.connect(self.route_generate)
-        # self.timer1000.start(1000)
+        self.timer1000 = QTimer(self)
+        self.timer1000.timeout.connect(self.draw_ship)
+        self.timer1000.timeout.connect(self.route_generate)
+        self.timer1000.start(1000)
 
     def update_data(self):
         try:
             self.sensor_data = self.worker.data
+            # print("self.sensor_data : ", self.sensor_data)
         except:
             print("Nope2")
 
@@ -311,9 +245,11 @@ class Window(QMainWindow, form_class):
                 print("목적지를 수신받지 않았습니다.")
                 return
         else:
-            latitude = self.sensor_data['latitude']
-            longitude = self.sensor_data['longitude']
-
+            try:
+                latitude = self.sensor_data['latitude']
+                longitude = self.sensor_data['longitude']
+            except:
+                return print("Nooop")
         js = Template(
             """
             if ({{on_record}}) {
@@ -367,10 +303,12 @@ class Window(QMainWindow, form_class):
     #해야 할 것 !!!
     def draw_ship(self):
         if not self.flag_simulation:
-            lat = float(self.sensor_data['latitude'])
-            lon = float(self.sensor_data['longitude'])
-            head = float(self.sensor_data['heading']) if self.sensor_data['heading'] != None else 0
-
+            try:
+                lat = float(self.sensor_data['latitude'])
+                lon = float(self.sensor_data['longitude'])
+                head = float(self.sensor_data['heading']) if self.sensor_data['heading'] != None else 0
+            except:
+                return print("here")
         else:
             lat = self.simulation_lat
             lon = self.simulation_lon
@@ -482,18 +420,16 @@ class Window(QMainWindow, form_class):
         self.model.removeRow(index.row())
 
     def stop_driving(self):
-        self.worker.message = {"mode_jetson" : "SELF", "dest_latitude" : None, "dest_longitude" : None}
-        self.sensor_data['is_driving'] = False
         self.sensor_data['mode_jetson'] = "SELF"
         self.sensor_data["dest_latitude"] = None
         self.sensor_data["dest_longitude"] = None
         self.sensor_data["pwml_auto"] = None
         self.sensor_data["pwmr_auto"] = None
         self.edit_destination.setText(str(self.sensor_data["dest_latitude"]) + ", " + str(self.sensor_data["dest_longitude"]))
+        self.edit_mode_jetson.setText("SELF") ########
         self.edit_pwml_auto.setText("None")
         self.edit_pwmr_auto.setText("None")
-
-        self.worker.message = {"is_driving": self.sensor_data['is_driving'], "pwml_auto" : self.sensor_data["pwml_auto"], "pwmr_auto" : self.sensor_data["pwmr_auto"]}
+        self.worker.message = {"mode_jetson" : "SELF", "dest_latitude" : None, "dest_longitude" : None}
 
     def show_sensor_data(self):
         try:
@@ -517,8 +453,9 @@ class Window(QMainWindow, form_class):
                     self.edit_distance_simulation.setText(str(self.simulation_distance_to_target))
                     self.edit_pwml_simulation.setText(str(self.simulation_pwml_auto))
                     self.edit_pwmr_simulation.setText(str(self.simulation_pwmr_auto))
-            except:
-                print("why...?")
+            except Exception as e:
+                print("why...? ", e)
+                pass
         except:
             print("why?")
 
@@ -527,28 +464,32 @@ class Window(QMainWindow, form_class):
     def select_destination(self):
         try:
             destination_longitude, destination_latitude = self.get_selected_coordinates()
+            print("???", destination_longitude, destination_latitude)
+
             self.edit_destination.setText(str(destination_longitude) + ", " + str(destination_latitude))
             # self.edit_distance.setText(str())
             self.sensor_data['dest_latitude'] = destination_latitude
             self.sensor_data['dest_longitude'] = destination_longitude
             self.worker.message['dest_latitude'] = float(self.sensor_data['dest_latitude'])
             self.worker.message['dest_longitude'] = float(self.sensor_data['dest_longitude'])
+            print("sensor_Data[dest_latitude] : {}, sensor_data[dest_longitude] : {}".format(self.sensor_data['dest_latitude'], self.sensor_data['dest_longitude']))
             # self.worker.message = "dest_latitude" : float(self.sensor_data['dest_latitude']), "dest_longitude" : float(self.sensor_data['dest_longitude'])}
             # print("self.worker.message : ", self.worker.message)
         except:
             return print("No destination")
 
     def start_driving(self):
-        self.sensor_data['is_driving'] = True
+        ## 자율 운항 중인지 확인은 >> mode_jetson == "AUTO" 일 때
+        print("sensor_Data[dest_latitude] : {}, sensor_data[dest_longitude] : {}".format(self.sensor_data['dest_latitude'], self.sensor_data['dest_longitude']))
         try:
-            self.worker.message = {"mode_jetson": "AUTO", "dest_latitude": float(self.sensor_data['dest_latitude']), "is_driving" : self.sensor_data['is_driving'],
+            self.worker.message = {"mode_jetson": "AUTO", "dest_latitude": float(self.sensor_data['dest_latitude']),
                                    "dest_longitude": float(self.sensor_data['dest_longitude'])}
             # print("self.worker.message : ", self.worker.message)
 
             ### self.worker.message를 통해 보내는 데이터는 > mode와 목적지
             # 즉, { "목적지" : str(destination_longitude) + ", " + str(destination_latitude), "mode" : self
-        except:
-            return print("No destination")
+        except Exception as e:
+            return print("auto driving error : ", e)
 
     def get_selected_coordinates(self) -> tuple:
         view = self.waypoints
@@ -567,7 +508,6 @@ class Window(QMainWindow, form_class):
 
         except ValueError:
             return None
-
 
         return longitude, latitude
 
@@ -592,8 +532,16 @@ class Window(QMainWindow, form_class):
             self.btn_simulation.setText("Simulation START")
 
     def stop_simulation(self):
+        print("stop received")
         self.flag_simulation = False
         self.worker.message['mode_jetson'] = "SELF"
+        self.worker.message['dest_latitude'] = None
+        self.worker.message['dest_longitude'] = None
+
+        self.sensor_data['mode_jetson'] = "SELF"
+        self.sensor_data['dest_latitude'] = None
+        self.sensor_data['dest_longitude'] = None
+        self.edit_destination.setText(str(self.sensor_data["dest_latitude"]) + ", " + str(self.sensor_data["dest_longitude"]))
 
         self.simulation_distance_to_target = None
         self.simulation_pwml_auto = None
@@ -603,6 +551,7 @@ class Window(QMainWindow, form_class):
         if self.simulation_thread is not None:
             self.simulation_thread.join()
 
+    ####여기먼저
     def simulation(self):
         self.flag_simulation = True
 
@@ -612,8 +561,8 @@ class Window(QMainWindow, form_class):
         try:
             current_latitude = float(self.sensor_data['latitude'])
             current_longitude = float(self.sensor_data['longitude'])
-            destination_latitude = float(self.sensor_data['dest_latitude'])
             destination_longitude = float(self.sensor_data['dest_longitude'])
+            destination_latitude = float(self.sensor_data['dest_latitude'])
         except:
             self.stop_simulation()
             self.simulation_thread = None
@@ -624,7 +573,7 @@ class Window(QMainWindow, form_class):
         current_heading = self.sensor_data['heading'] if self.sensor_data['heading'] is not None else 0
 
         try:
-            if self.sensor_data['distance'] != None:
+            if self.sensor_data['dest_latitude'] != None:
                 while self.flag_simulation:
                     if current_heading > 180:
                         current_heading = current_heading - 360
@@ -633,6 +582,8 @@ class Window(QMainWindow, form_class):
                     self.simulation_distance_to_target = haversine((current_latitude, current_longitude),
                                                                    (destination_latitude, destination_longitude),
                                                                    unit='m')
+
+                    # self.sensor_data['distance'] = float(self.simulation_distance_to_target)
 
                     # 선박과 목적지가 이루는 선의 자북에 대한 각도 계산
                     target_angle = math.degrees(
@@ -667,6 +618,7 @@ class Window(QMainWindow, form_class):
                     self.simulation_pwml_auto = int(PWM_left)
                     self.simulation_pwmr_auto = int(PWM_right)
 
+                    print("simulation pwm값 : ", self.simulation_pwmr_auto, self.simulation_pwmr_auto)
                     # print("left : {}, right :{}".format(self.simulation_pwml_auto, self.simulation_pwmr_auto))
                     try:
                         if self.simulation_pwml_auto == self.simulation_pwmr_auto and self.simulation_pwml_auto != 1500:

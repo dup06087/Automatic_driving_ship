@@ -34,7 +34,7 @@ class boat:
         self.current_value = {'mode_jetson': "SELF",'mode_chk': "SELF", 'pwml': None, 'pwmr': None, 'pwml_auto' : None, 'pwmr_auto' : None, 'pwml_sim' : None, 'pwmr_sim' : None, "latitude": 37.633173, "longitude": 127.077618, 'dest_latitude' : None, 'dest_longitude' : None,
                          'velocity': None,
                          'heading': 0, 'roll': None, 'pitch': None, 'validity': None, 'time': None, 'IP': None,
-                         'com_status': None, 'date': None, 'distance' : None}
+                         'com_status': None, 'date': None, 'distance' : None, 'is_driving' : False}
 
         # 'dest_latitude': None, 'dest_longitude': None,
         self.message = None
@@ -130,10 +130,10 @@ class boat:
     def send_data(self, ser, mode, pwm_left, pwm_right):
         send_message = "mode:{},pwm_left:{},pwm_right:{}\n".format(mode, pwm_left, pwm_right).encode()
         ser.write(send_message)
-        print("Jetson >> Nucleo : ", send_message)
+        # print("Jetson >> Nucleo : ", send_message)
 
     def is_valid_data(self, data):
-        pattern = re.compile(r"mode:(AUTO|SELF|SMLT|WAIT),pwm_left:\d+,pwm_right:\d+")
+        pattern = re.compile(r"mode:(AUTO|SELF|SMLT|WAIT),pwm_left:(\d+|None),pwm_right:(\d+|None)")
         return bool(pattern.match(data))
 
     '''Serial 데이터 정리
@@ -162,9 +162,9 @@ class boat:
                     # mode_str = random.choice(["AUTO", "MANUAL"])
                     mode_str = self.current_value['mode_jetson']
                     pwm_left_auto = int(
-                        self.current_value['pwml_auto'] if self.current_value['pwml_auto'] is not None else 0)
+                        self.current_value['pwml_auto'] if self.current_value['pwml_auto'] is not None else 1)
                     pwm_right_auto = int(
-                        self.current_value['pwmr_auto'] if self.current_value['pwmr_auto'] is not None else 0)
+                        self.current_value['pwmr_auto'] if self.current_value['pwmr_auto'] is not None else 2)
                     # Send data and wait for the response
                     self.send_data(ser_nucleo, mode_str, pwm_left_auto, pwm_right_auto)
 
@@ -181,10 +181,10 @@ class boat:
                         print("error")
 
                     # print("Jetson >> Nucleo, send : ", data_str.encode())
-                    print("Nucleo >> Jetson, mode : {}, pwml : {}, pwmr : {}".format(self.current_value['mode_chk'],
-                                                                                     self.current_value['pwml'],
-                                                                                     self.current_value['pwmr']))
-                    time.sleep(0.5)
+                    # print("Nucleo >> Jetson, mode : {}, pwml : {}, pwmr : {}".format(self.current_value['mode_chk'],
+                    #                                                                  self.current_value['pwml'],
+                    #                                                                  self.current_value['pwmr']))
+                    time.sleep(0.1)
 
             except Exception as e:
                 print("Nucleo:", e)
@@ -216,13 +216,13 @@ class boat:
                     if not data:
                         break
 
+                    print(data)
                     try:
                         received_dict = json.loads(data.decode('utf-8'))
-                        # self.current_value['mode_jetson'] = received_dict['mode_jetson']
-                        # self.current_value['dest_latitude'] = float(received_dict['dest_latitude'])
-                        # self.current_value['dest_longitude'] = float(received_dict['dest_longitude'])
-                        # self.current_value['is_driving'] = received_dict['is_driving']
-                        print("PC >> Jetson", received_dict)  # 출력문 추가
+                        self.current_value['mode_jetson'] = received_dict['mode_jetson']
+                        self.current_value['dest_latitude'] = float(received_dict['dest_latitude'])
+                        self.current_value['dest_longitude'] = float(received_dict['dest_longitude'])
+                        # print("PC >> Jetson", received_dict)  # 출력문 추가
 
                         # if not self.current_value['is_driving']:
                         #     self.current_value['pwml_auto'] = 0
@@ -232,7 +232,7 @@ class boat:
                         print("Failed to decode received data from client.")
                         continue
 
-                    time.sleep(1)
+                    time.sleep(0.1)
             except Exception as e:
                 print(f"PC recv connection Error: {e}")
                 continue
@@ -266,7 +266,7 @@ class boat:
                                 message += '\n'  # 구분자 추가
                                 try:
                                     client_socket.sendall(message.encode())
-                                    print("Jetson >> pc, send : ", message)  # 출력문 추가
+                                    # print("Jetson >> pc, send : ", message)  # 출력문 추가
                                 except OSError as e:
                                     print("Error in sending message:", e)  # 에러 출력문 추가
                                     raise Exception("Connection with client has been closed.")
@@ -289,86 +289,95 @@ class boat:
     def auto_driving(self):
         print("in the auto driving")
         send_well = False
+
         last_print_time = time.time()  # 마지막으로 출력한 시간 초기화
-
         # print("is driving?? ", self.is_driving)
-        while self.current_value['is_driving']:
-            print("driving")
-            if (self.current_value['latitude'] is not None and self.current_value['longitude'] is not None and
-                    self.current_value['dest_latitude'] is not None and self.current_value[
-                        'dest_longitude'] is not None):
-                current_latitude = float(self.current_value['latitude'])
-                current_longitude = float(self.current_value['longitude'])
-                try:
-                    current_heading = float(self.current_value['heading'])
-                except:
-                    current_heading = 0
-                destination_latitude = float(self.current_value['dest_latitude'])
-                destination_longitude = float(self.current_value['dest_longitude'])
-            else:
-                return
+        while True:  # 무한 루프 생성
+            try:
+                is_driving = True if self.current_value['is_driving'] == "AUTO" else False
+                if not is_driving:
+                    self.current_value['pwml_auto'] = 1
+                    self.current_value['pwmr_auto'] = 2
+                    self.distance_to_target = None
+                    self.current_value['distance'] = None
+                    break  # is_driving이 False일 경우 루프를 빠져나옴
 
-            # 헤딩 값을 -180에서 180 사이의 값으로 변환
-            if current_heading > 180:
-                current_heading = current_heading - 360
+                if (self.current_value['latitude'] is not None and self.current_value['longitude'] is not None and
+                        self.current_value['dest_latitude'] is not None and self.current_value[
+                            'dest_longitude'] is not None):
+                    current_latitude = float(self.current_value['latitude'])
+                    current_longitude = float(self.current_value['longitude'])
+                    try:
+                        current_heading = float(self.current_value['heading'])
+                    except:
+                        current_heading = 0
+                    destination_latitude = float(self.current_value['dest_latitude'])
+                    destination_longitude = float(self.current_value['dest_longitude'])
+                else:
+                    return print("XXX")
 
-            # Haversine 공식을 사용하여 두 지점 사이의 거리를 계산
-            self.distance_to_target = haversine((current_latitude, current_longitude),
-                                                (destination_latitude, destination_longitude), unit='m')
-            self.current_value['distance'] = float(self.distance_to_target)
+                # 헤딩 값을 -180에서 180 사이의 값으로 변환
+                if current_heading > 180:
+                    current_heading = current_heading - 360
 
-            # 선박과 목적지가 이루는 선의 자북에 대한 각도 계산
-            target_angle = math.degrees(
-                math.atan2(destination_longitude - current_longitude, destination_latitude - current_latitude))
+                # Haversine 공식을 사용하여 두 지점 사이의 거리를 계산
+                self.distance_to_target = haversine((current_latitude, current_longitude),
+                                                    (destination_latitude, destination_longitude), unit='m')
+                self.current_value['distance'] = float(self.distance_to_target)
 
-            # 헤딩과 목표 각도 간의 차이 계산
-            angle_diff = target_angle - current_heading
-            if angle_diff > 180:
-                angle_diff -= 360
-            elif angle_diff < -180:
-                angle_diff += 360
+                # 선박과 목적지가 이루는 선의 자북에 대한 각도 계산
+                target_angle = math.degrees(
+                    math.atan2(destination_longitude - current_longitude, destination_latitude - current_latitude))
 
-            # 각도 차이에 따른 throttle 및 roll 성분 계산
-            throttle_component = self.distance_to_target * math.cos(math.radians(angle_diff))
-            roll_component = self.distance_to_target * math.sin(math.radians(angle_diff))
+                # 헤딩과 목표 각도 간의 차이 계산
+                angle_diff = target_angle - current_heading
+                if angle_diff > 180:
+                    angle_diff -= 360
+                elif angle_diff < -180:
+                    angle_diff += 360
 
-            # PWM 값 계산
-            Kf = 2.5
-            # Kd = 0.25 * 800 / (2 * math.pi * 100)
-            Kd = 0.318
+                # 각도 차이에 따른 throttle 및 roll 성분 계산
+                throttle_component = self.distance_to_target * math.cos(math.radians(angle_diff))
+                roll_component = self.distance_to_target * math.sin(math.radians(angle_diff))
 
-            Uf = Kf * throttle_component
-            Uf = max(1550 - 1500, min(Uf, 1750 - 1500))
+                # PWM 값 계산
+                Kf = 2.5
+                # Kd = 0.25 * 800 / (2 * math.pi * 100)
+                Kd = 0.318
 
-            Ud = Kd * roll_component
-            max_diff = 800 * 0.125
-            Ud = max(-max_diff, min(Ud, max_diff))
+                Uf = Kf * throttle_component
+                Uf = max(1550 - 1500, min(Uf, 1750 - 1500))
 
-            PWM_right = 1500 + Uf - Ud
-            PWM_left = 1500 + Uf + Ud
+                Ud = Kd * roll_component
+                max_diff = 800 * 0.125
+                Ud = max(-max_diff, min(Ud, max_diff))
 
-            self.current_value["pwml_auto"] = int(PWM_left)
-            self.current_value["pwmr_auto"] = int(PWM_right)
+                PWM_right = 1500 + Uf - Ud
+                PWM_left = 1500 + Uf + Ud
 
-            current_time = time.time()
-            if current_time - last_print_time >= 1:  # 마지막 출력 후 1초 경과 여부 확인
-                try:
-                    # print(self.distance_to_target)
-                    # print("x :", throttle_component, "y : ", roll_component)
-                    # print("PWM_right : ", PWM_right, "PWM_left : ", PWM_left)
-                    last_print_time = current_time  # 마지막 출력 시간 업데이트
-                except:
-                    pass
-            # print("self.current_value : \n{}".format(self.current_value))
-            time.sleep(0.1)
+                self.current_value["pwml_auto"] = int(PWM_left)
+                self.current_value["pwmr_auto"] = int(PWM_right)
+
+                current_time = time.time()
+                if current_time - last_print_time >= 1:  # 마지막 출력 후 1초 경과 여부 확인
+                    try:
+                        # print(self.distance_to_target)
+                        # print("x :", throttle_component, "y : ", roll_component)
+                        # print("PWM_right : ", PWM_right, "PWM_left : ", PWM_left)
+                        last_print_time = current_time  # 마지막 출력 시간 업데이트
+                    except:
+                        pass
+                # print("self.current_value : \n{}".format(self.current_value))
+                time.sleep(0.1)
+            except:
+                print("되나")
 
     def thread_start(self):
-        # t1 = threading.Thread(target=self.serial_gnss)
-        # t2 = threading.Thread(target=self.serial_nucleo)
+        t1 = threading.Thread(target=self.serial_gnss)
+        t2 = threading.Thread(target=self.serial_nucleo)
         t3 = threading.Thread(target=self.socket_pc_recv)
         t4 = threading.Thread(target=self.socket_pc_send)
-        # t4 = threading.Thread(target=self.auto_driving)
-        # t5 = threading.Thread(target=self.simulator)
+        t5 = threading.Thread(target=self.auto_driving)
         while True:
             # print("executed")
             if self.end == 1:
@@ -380,14 +389,14 @@ class boat:
 
             # print("done?")
             try:
-                # if not t1.is_alive():
-                #     t1 = threading.Thread(target=self.serial_gnss)
-                #     t1.start()
-                #     print("restart t1")
-                # if not t2.is_alive():
-                #     t2 = threading.Thread(target=self.serial_nucleo)
-                #     t2.start()
-                #     print("restart t2")
+                if not t1.is_alive():
+                    t1 = threading.Thread(target=self.serial_gnss)
+                    t1.start()
+                    print("restart t1")
+                if not t2.is_alive():
+                    t2 = threading.Thread(target=self.serial_nucleo)
+                    t2.start()
+                    print("restart t2")
                 if not t3.is_alive():
                     t3 = threading.Thread(target=self.socket_pc_recv)
                     t3.start()
@@ -395,6 +404,10 @@ class boat:
                 if not t4.is_alive():
                     t4 = threading.Thread(target=self.socket_pc_send)
                     t4.start()
+                    print("restart t4")
+                if not t5.is_alive():
+                    t5 = threading.Thread(target=self.auto_driving)
+                    t5.start()
                     print("restart t4")
 
             except queue.Empty:
