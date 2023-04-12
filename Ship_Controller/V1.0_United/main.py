@@ -144,7 +144,6 @@ class Window(QMainWindow, form_class):
         self.model = QStandardItemModel(self)
         self.points_init = False
         self.on_record = True
-        self.is_driving = False
         self.combo_mode.setEnabled(False)
         self.flag_simulation = False
         self.simulation_thread = None
@@ -160,7 +159,7 @@ class Window(QMainWindow, form_class):
         self.sensor_data = {'mode_jetson': "SELF",'mode_chk': "SELF", 'pwml': None, 'pwmr': None, 'pwml_auto' : None, 'pwmr_auto' : None, 'pwml_sim' : None, 'pwmr_sim' : None, "latitude": 37.63124688, "longitude": 127.07633361, 'dest_latitude': None, 'dest_longitude' : None,
                             'velocity': None,
                             'heading': 0, 'roll': None, 'pitch': None, 'validity': None, 'time': None, 'IP': None,
-                            'com_status': None, 'date' : None, 'distance' : None, 'is_driving' : False}
+                            'com_status': None, 'date' : None, 'distance' : None}
         ### mode : None, driving
 
         coordinate = (self.sensor_data['latitude'], self.sensor_data['longitude'])

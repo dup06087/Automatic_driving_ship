@@ -14,7 +14,6 @@ class boat:
     def __init__(self):
         self.end = 0
         self.flag_exit = False
-        self.is_driving = False
         self.distance_to_target = 0
 
         self.err_prev = 0
@@ -34,7 +33,7 @@ class boat:
         self.current_value = {'mode_jetson': "SELF",'mode_chk': "SELF", 'pwml': None, 'pwmr': None, 'pwml_auto' : None, 'pwmr_auto' : None, 'pwml_sim' : None, 'pwmr_sim' : None, "latitude": 37.633173, "longitude": 127.077618, 'dest_latitude' : None, 'dest_longitude' : None,
                          'velocity': None,
                          'heading': 0, 'roll': None, 'pitch': None, 'validity': None, 'time': None, 'IP': None,
-                         'com_status': None, 'date': None, 'distance' : None, 'is_driving' : False}
+                         'com_status': None, 'date': None, 'distance' : None}
 
         # 'dest_latitude': None, 'dest_longitude': None,
         self.message = None
@@ -47,8 +46,8 @@ class boat:
 
     def serial_gnss(self):  # NMEA data
         try:
-            self.port_gnss = "COM6"
-            ser_gnss = serial.Serial(self.port_gnss, baudrate=115200)
+            port_gnss = "COM6"
+            ser_gnss = serial.Serial(port_gnss, baudrate=115200)
             data_counter = 0
             while True:
                 # print("self.running running")
@@ -216,7 +215,7 @@ class boat:
                     if not data:
                         break
 
-                    print(data)
+                    # print(data)
                     try:
                         received_dict = json.loads(data.decode('utf-8'))
                         self.current_value['mode_jetson'] = received_dict['mode_jetson']
@@ -294,7 +293,7 @@ class boat:
         # print("is driving?? ", self.is_driving)
         while True:  # 무한 루프 생성
             try:
-                is_driving = True if self.current_value['is_driving'] == "AUTO" else False
+                is_driving = True if self.current_value['mode_jetson'] == "AUTO" else False
                 if not is_driving:
                     self.current_value['pwml_auto'] = 1
                     self.current_value['pwmr_auto'] = 2
@@ -366,7 +365,7 @@ class boat:
                         # print("PWM_right : ", PWM_right, "PWM_left : ", PWM_left)
                         last_print_time = current_time  # 마지막 출력 시간 업데이트
                     except:
-                        pass
+                        print("NOOOOOp")
                 # print("self.current_value : \n{}".format(self.current_value))
                 time.sleep(0.1)
             except:
