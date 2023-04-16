@@ -10,6 +10,7 @@ import random
 import select
 import re
 
+
 class boat:
     def __init__(self):
         self.end = 0
@@ -30,10 +31,12 @@ class boat:
         # enddriving="0"
         self.driveindex = 0
 
-        self.current_value = {'mode_jetson': "SELF",'mode_chk': "SELF", 'pwml': None, 'pwmr': None, 'pwml_auto' : None, 'pwmr_auto' : None, 'pwml_sim' : None, 'pwmr_sim' : None, "latitude": 37.633173, "longitude": 127.077618, 'dest_latitude' : None, 'dest_longitude' : None,
-                         'velocity': None,
-                         'heading': 0, 'roll': None, 'pitch': None, 'validity': None, 'time': None, 'IP': None,
-                         'com_status': None, 'date': None, 'distance' : None}
+        self.current_value = {'mode_jetson': "SELF", 'mode_chk': "SELF", 'pwml': None, 'pwmr': None, 'pwml_auto': None,
+                              'pwmr_auto': None, 'pwml_sim': None, 'pwmr_sim': None, "latitude": 37.633173,
+                              "longitude": 127.077618, 'dest_latitude': None, 'dest_longitude': None,
+                              'velocity': None,
+                              'heading': 0, 'roll': None, 'pitch': None, 'validity': None, 'time': None, 'IP': None,
+                              'com_status': None, 'date': None, 'distance': None}
 
         # 'dest_latitude': None, 'dest_longitude': None,
         self.message = None
@@ -64,13 +67,13 @@ class boat:
                                 else:
                                     continue
 
-                                self.current_value['validity'] = tokens[2] ## A = valid, V = not Valid
+                                self.current_value['validity'] = tokens[2]  ## A = valid, V = not Valid
 
                                 lat_min = float(tokens[3])
                                 lat_deg = int(lat_min / 100)
                                 lat_min -= lat_deg * 100
                                 lat = lat_deg + lat_min / 60
-                                self.current_value['latitude'] = round(lat,8)
+                                self.current_value['latitude'] = round(lat, 8)
 
                                 lon_sec = float(tokens[5])
                                 lon_deg = int(lon_sec / 100)
@@ -83,10 +86,10 @@ class boat:
                             except ValueError:
                                 continue
 
-                        elif tokens[0] == '$PSSN': #HRP
+                        elif tokens[0] == '$PSSN':  # HRP
                             try:
-                                self.current_value['time'] = tokens[2] # UTC
-                                self.current_value['date'] = tokens[3] # date
+                                self.current_value['time'] = tokens[2]  # UTC
+                                self.current_value['date'] = tokens[3]  # date
                                 self.current_value['heading'] = float(tokens[4])
                                 self.current_value['roll'] = float(tokens[5])
                                 self.current_value['pitch'] = float(tokens[6])
@@ -103,14 +106,14 @@ class boat:
 
                         data_counter += 1
                         if data_counter % 2 == 0:
-                                self.message = self.dict_to_str(self.current_value)
-                                data_counter = 0
-                                # print(self.message)
+                            self.message = self.dict_to_str(self.current_value)
+                            data_counter = 0
+                            # print(self.message)
 
-                                # print("GNSS >> Jetson : ", self.current_value)
-                                self.latnow = self.current_value['latitude']
-                                self.heading = self.current_value['heading']
-                                self.lngnow = self.current_value['longitude']
+                            # print("GNSS >> Jetson : ", self.current_value)
+                            self.latnow = self.current_value['latitude']
+                            self.heading = self.current_value['heading']
+                            self.lngnow = self.current_value['longitude']
 
 
 
@@ -120,7 +123,7 @@ class boat:
                 # print(self.current_value)
 
         except Exception as e:
-                print(f'GNSS >> Error : {e}')
+            print(f'GNSS >> Error : {e}')
 
         finally:
             # ser_gnss.close() #필요가 없네?
@@ -139,7 +142,7 @@ class boat:
         Jetson >> Nucleo값이 다음과 같을 떄 :
         mode : SELF, pwml : 0, pwmr : 0 >> pwml_auto, pwmr_auto 초기화 한 후로 데이터 못 받음 current_value에서 받아오는것 문제
         mode : SELF, pwml : 0, pwmr : 0 >> self 모드에서 데이터 수신 잘 하는중
-        
+
         Nucleo >> Jetson
         mode : AUTO, pwml : 0, pwmr : 0 >> AUTO 모드에서 종기 꺼짐
         mode : SELF, pwml : 4500, pwmr : 0 >> 송수신기 연결 X
@@ -147,6 +150,7 @@ class boat:
         mode : None, pwml : None, pwmr : None >> Jetson이 데이터 수신 못받는 중 >> respone 변수 문제있음
         mode : WAIT, pwml : 0, pwmr : 0 >> auto 기다리는 중
     '''
+
     def serial_nucleo(self):
         port_nucleo = "COM8"
         baudrate = 115200
@@ -180,15 +184,15 @@ class boat:
                         print("error")
 
                     # print("Jetson >> Nucleo, send : ", data_str.encode())
-                    print("Nucleo >> Jetson, mode : {}, pwml : {}, pwmr : {}".format(self.current_value['mode_chk'],
-                                                                                     self.current_value['pwml'],
-                                                                                     self.current_value['pwmr']))
+                    # print("Nucleo >> Jetson, mode : {}, pwml : {}, pwmr : {}".format(self.current_value['mode_chk'],
+                    #                                                                  self.current_value['pwml'],
+                    #                                                                  self.current_value['pwmr']))
                     time.sleep(0.1)
 
             except Exception as e:
                 print("Nucleo:", e)
                 print("End serial_nucleo")
-                time.sleep(0.05)
+                time.sleep(1)
             finally:
                 try:
                     ser_nucleo.close()
@@ -313,8 +317,6 @@ class boat:
                     destination_latitude = float(self.current_value['dest_latitude'])
                     destination_longitude = float(self.current_value['dest_longitude'])
                 else:
-                    self.current_value["pwml_auto"] = 0
-                    self.current_value["pwmr_auto"] = 0
                     return print("XXX")
 
                 # 헤딩 값을 -180에서 180 사이의 값으로 변환
@@ -386,8 +388,6 @@ class boat:
             # print("going1")
             # self.cs, self.addr = self.server_socket.accept()
 
-
-
             # print("done?")
             try:
                 if not t1.is_alive():
@@ -427,6 +427,6 @@ class boat:
 
             time.sleep(5)
 
+
 Boat = boat()
 Boat.thread_start()
-

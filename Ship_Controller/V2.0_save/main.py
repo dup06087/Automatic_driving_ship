@@ -36,8 +36,8 @@ class Worker(QtCore.QThread):
         self.data = {"mode_jetson": "SELF", "dest_latitude": None, "dest_longitude": None}
 
     def run(self):
-        recv_host, recv_port = 'localhost', 5001
-        send_host, send_port = 'localhost', 5002
+        recv_host, recv_port = '192.168.0.62', 5001
+        send_host, send_port = '192.168.0.62', 5002
         stop_event = threading.Event()
         recv_socket = None
         send_socket = None
@@ -74,6 +74,7 @@ class Worker(QtCore.QThread):
                         continue
 
                     if data:
+                        data_buffer = b''  # 버퍼를 초기화합니다.
                         data_buffer += data
 
                         if b'\n' in data_buffer:

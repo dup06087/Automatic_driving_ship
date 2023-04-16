@@ -80,7 +80,7 @@ class Worker(QtCore.QThread):
                             data_line, data_buffer = data_buffer.split(b'\n', 1)
                             try:
                                 received_dict = json.loads(data_line.decode('utf-8'))
-                                print("Jetson >> PC", received_dict)
+                                # print("Jetson >> PC", received_dict)
                             except (json.JSONDecodeError, TypeError, ValueError):
                                 print("Failed to decode received data from client.")
                             else:
@@ -98,7 +98,7 @@ class Worker(QtCore.QThread):
                     else:
                         print("Invalid message. Not sending...")
 
-                time.sleep(0.05)
+                time.sleep(0.1)
 
             except (socket.error, Exception) as e:
                 print(f"Error: {e}")
@@ -453,7 +453,7 @@ class Window(QMainWindow, form_class):
                     self.edit_pwml_simulation.setText(str(self.simulation_pwml_auto))
                     self.edit_pwmr_simulation.setText(str(self.simulation_pwmr_auto))
             except Exception as e:
-                # print("why...? ", e)
+                print("why...? ", e)
                 pass
         except:
             print("why?")

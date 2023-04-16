@@ -9,6 +9,7 @@ import json
 import random
 import select
 import re
+import atexit
 
 class boat:
     def __init__(self):
@@ -19,9 +20,6 @@ class boat:
         self.err_prev = 0
         self.time_prev = 0
 
-        self.heading = 0
-        self.latnow = 0
-        self.lngnow = 0
         self.sendToPc = ""
 
         self.isready = False
@@ -106,13 +104,7 @@ class boat:
                                 self.message = self.dict_to_str(self.current_value)
                                 data_counter = 0
                                 # print(self.message)
-
                                 # print("GNSS >> Jetson : ", self.current_value)
-                                self.latnow = self.current_value['latitude']
-                                self.heading = self.current_value['heading']
-                                self.lngnow = self.current_value['longitude']
-
-
 
                 else:
                     time.sleep(0.2)
@@ -147,6 +139,15 @@ class boat:
         mode : None, pwml : None, pwmr : None >> Jetson이 데이터 수신 못받는 중 >> respone 변수 문제있음
         mode : WAIT, pwml : 0, pwmr : 0 >> auto 기다리는 중
     '''
+
+    def close_serial_port(self, ser):
+        try:
+            if ser and ser.is_open:
+                ser.close()
+                print("시리얼 포트가 닫혔습니다.")
+        except:
+            print("nucleo 연결 해제 안 된 듯")
+
     def serial_nucleo(self):
         port_nucleo = "COM8"
         baudrate = 115200
@@ -154,6 +155,7 @@ class boat:
         while True:
             try:
                 ser_nucleo = serial.Serial(port_nucleo, baudrate=baudrate, timeout=10)
+                atexit.register(self.close_serial_port, ser_nucleo)
                 last_print_time = time.time()
 
                 while True:
@@ -183,12 +185,12 @@ class boat:
                     print("Nucleo >> Jetson, mode : {}, pwml : {}, pwmr : {}".format(self.current_value['mode_chk'],
                                                                                      self.current_value['pwml'],
                                                                                      self.current_value['pwmr']))
-                    time.sleep(0.1)
+                    time.sleep(0.05)
 
             except Exception as e:
                 print("Nucleo:", e)
                 print("End serial_nucleo")
-                time.sleep(0.05)
+                time.sleep(0.1)
             finally:
                 try:
                     ser_nucleo.close()
@@ -228,7 +230,7 @@ class boat:
                         #     self.current_value['pwmr_auto'] = 0
 
                     except (json.JSONDecodeError, TypeError, ValueError):
-                        print("Failed to decode received data from client.")
+                        print("PC로부터의 데이터 수신 문제.")
                         continue
 
                     time.sleep(0.1)
@@ -272,7 +274,7 @@ class boat:
                             else:
                                 print("current_value is not a dictionary.")
 
-                        time.sleep(1)
+                        time.sleep(0.05)
 
                 except Exception as e:
                     print(f"PC send connection Error: {e}")
@@ -291,7 +293,7 @@ class boat:
 
         last_print_time = time.time()  # 마지막으로 출력한 시간 초기화
         # print("is driving?? ", self.is_driving)
-        while True:  # 무한 루프 생성
+        while True:  # 무한 :
             try:
                 is_driving = True if self.current_value['mode_jetson'] == "AUTO" else False
                 if not is_driving:
@@ -313,8 +315,6 @@ class boat:
                     destination_latitude = float(self.current_value['dest_latitude'])
                     destination_longitude = float(self.current_value['dest_longitude'])
                 else:
-                    self.current_value["pwml_auto"] = 0
-                    self.current_value["pwmr_auto"] = 0
                     return print("XXX")
 
                 # 헤딩 값을 -180에서 180 사이의 값으로 변환
@@ -369,7 +369,7 @@ class boat:
                     except:
                         print("NOOOOOp")
                 # print("self.current_value : \n{}".format(self.current_value))
-                time.sleep(0.1)
+                time.sleep(0.05)
             except:
                 print("되나")
 
