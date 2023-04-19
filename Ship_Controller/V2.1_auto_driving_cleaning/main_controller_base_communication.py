@@ -48,7 +48,7 @@ class boat:
     def serial_gnss(self):  # NMEA data
         try:
             # port_gnss = "/dev/ttyACM1"
-            port_gnss = "/dev/tty_septentrio0" ### 23.04.19 settings I don't know whether port 3 or 6
+            port_gnss = "/dev/tty_septentrio0" ### 23.04.19 settings >> usb1 > 0
             # port_gnss = "/dev/tty_septentrio1" ### belonged to septentrio port
             ser_gnss = serial.Serial(port_gnss, baudrate=115200)
             data_counter = 0
@@ -113,7 +113,7 @@ class boat:
                             # print("GNSS >> Jetson : ", self.current_value)
 
                 else:
-                    time.sleep(0.2)
+                    time.sleep(0.1)
 
                 # print(self.current_value)
 
