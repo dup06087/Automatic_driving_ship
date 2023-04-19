@@ -11,6 +11,7 @@ import select
 import re
 import atexit
 
+
 class boat:
     def __init__(self):
         self.end = 0
@@ -28,10 +29,12 @@ class boat:
         # enddriving="0"
         self.driveindex = 0
 
-        self.current_value = {'mode_jetson': "SELF",'mode_chk': "SELF", 'pwml': None, 'pwmr': None, 'pwml_auto' : None, 'pwmr_auto' : None, 'pwml_sim' : None, 'pwmr_sim' : None, "latitude": 37.633173, "longitude": 127.077618, 'dest_latitude' : None, 'dest_longitude' : None,
-                         'velocity': None,
-                         'heading': 0, 'roll': None, 'pitch': None, 'validity': None, 'time': None, 'IP': None,
-                         'com_status': None, 'date': None, 'distance' : None}
+        self.current_value = {'mode_jetson': "SELF", 'mode_chk': "SELF", 'pwml': None, 'pwmr': None, 'pwml_auto': None,
+                              'pwmr_auto': None, 'pwml_sim': None, 'pwmr_sim': None, "latitude": 37.633173,
+                              "longitude": 127.077618, 'dest_latitude': None, 'dest_longitude': None,
+                              'velocity': None,
+                              'heading': 0, 'roll': None, 'pitch': None, 'validity': None, 'time': None, 'IP': None,
+                              'com_status': None, 'date': None, 'distance': None}
 
         # 'dest_latitude': None, 'dest_longitude': None,
         self.message = None
@@ -44,14 +47,16 @@ class boat:
 
     def serial_gnss(self):  # NMEA data
         try:
-            port_gnss = "COM6"
+            # port_gnss = "/dev/ttyACM1"
+            port_gnss = "/dev/tty_septentrio0" ### 23.04.19 settings I don't know whether port 3 or 6
+            # port_gnss = "/dev/tty_septentrio1" ### belonged to septentrio port
             ser_gnss = serial.Serial(port_gnss, baudrate=115200)
             data_counter = 0
             while True:
-                # print("self.running running")
+                print("self.running running")
                 if ser_gnss.in_waiting > 0:
                     data = ser_gnss.readline().decode().strip()
-                    # print("GNSS > Jetson : ",data)
+                    print("GNSS > Jetson : ",data)
                     if data.startswith('$'):
                         tokens = data.split(',')
 
@@ -60,15 +65,16 @@ class boat:
                                 if tokens[2] == "A":
                                     pass
                                 else:
+                                    self.current_value['validity'] = tokens[2]
                                     continue
 
-                                self.current_value['validity'] = tokens[2] ## A = valid, V = not Valid
+                                self.current_value['validity'] = tokens[2]  ## A = valid, V = not Valid
 
                                 lat_min = float(tokens[3])
                                 lat_deg = int(lat_min / 100)
                                 lat_min -= lat_deg * 100
                                 lat = lat_deg + lat_min / 60
-                                self.current_value['latitude'] = round(lat,8)
+                                self.current_value['latitude'] = round(lat, 8)
 
                                 lon_sec = float(tokens[5])
                                 lon_deg = int(lon_sec / 100)
@@ -81,18 +87,16 @@ class boat:
                             except ValueError:
                                 continue
 
-                        elif tokens[0] == '$PSSN': #HRP
+                        elif tokens[0] == '$PSSN':  # HRP
                             try:
-                                self.current_value['time'] = tokens[2] # UTC
-                                self.current_value['date'] = tokens[3] # date
-                                print("4 : ",tokens[4], "5 : ", tokens[5], "6 : ", tokens[6])
-
+                                self.current_value['time'] = tokens[2]  # UTC
+                                self.current_value['date'] = tokens[3]  # date
                                 self.current_value['heading'] = float(tokens[4])
-                                # self.current_value['roll'] = float(tokens[5])
+                                self.current_value['roll'] = float(tokens[5])
                                 self.current_value['pitch'] = float(tokens[6])
 
                             except ValueError:
-                                print("GNSS >> position fix 문제")
+                                # print("GNSS >> position fix 문제")
                                 self.current_value['heading'] = None
                                 self.current_value['roll'] = None
                                 self.current_value['pitch'] = None
@@ -103,10 +107,10 @@ class boat:
 
                         data_counter += 1
                         if data_counter % 2 == 0:
-                                self.message = self.dict_to_str(self.current_value)
-                                data_counter = 0
-                                # print(self.message)
-                                # print("GNSS >> Jetson : ", self.current_value)
+                            self.message = self.dict_to_str(self.current_value)
+                            data_counter = 0
+                            # print(self.message)
+                            # print("GNSS >> Jetson : ", self.current_value)
 
                 else:
                     time.sleep(0.2)
@@ -114,7 +118,7 @@ class boat:
                 # print(self.current_value)
 
         except Exception as e:
-                print(f'GNSS >> Error : {e}')
+            print(f'GNSS >> Error : {e}')
 
         finally:
             # ser_gnss.close() #필요가 없네?
@@ -133,7 +137,7 @@ class boat:
         Jetson >> Nucleo값이 다음과 같을 떄 :
         mode : SELF, pwml : 0, pwmr : 0 >> pwml_auto, pwmr_auto 초기화 한 후로 데이터 못 받음 current_value에서 받아오는것 문제
         mode : SELF, pwml : 0, pwmr : 0 >> self 모드에서 데이터 수신 잘 하는중
-        
+
         Nucleo >> Jetson
         mode : AUTO, pwml : 0, pwmr : 0 >> AUTO 모드에서 종기 꺼짐
         mode : SELF, pwml : 4500, pwmr : 0 >> 송수신기 연결 X
@@ -151,7 +155,8 @@ class boat:
             print("nucleo 연결 해제 안 된 듯")
 
     def serial_nucleo(self):
-        port_nucleo = "COM7"
+        # port_nucleo = "/dev/ttyACM0"
+        port_nucleo = "/dev/tty_nucleo_f401re2"
         baudrate = 115200
 
         while True:
@@ -200,7 +205,7 @@ class boat:
                     pass
 
     ### receive from PC
-    def socket_pc_recv(self, client_socket='localhost', recv_port=5002):
+    def socket_pc_recv(self, client_socket='0.0.0.0', recv_port=5002):
         server_socket_pc_recv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         host = client_socket
         port = recv_port
@@ -213,7 +218,7 @@ class boat:
             try:
                 client_socket, client_address = server_socket_pc_recv.accept()
                 print(f"Connected by {client_address}")
-
+                last_print_time = time.time()
                 while True:
                     data = client_socket.recv(1024).strip()
                     if not data:
@@ -231,8 +236,21 @@ class boat:
                         #     self.current_value['pwml_auto'] = 0
                         #     self.current_value['pwmr_auto'] = 0
 
+
+
+                    # print(self.distance_to_target)
+                    # print("x :", throttle_component, "y : ", roll_component)
+                    # print("PWM_right : ", PWM_right, "PWM_left : ", PWM_left)
+
+
                     except (json.JSONDecodeError, TypeError, ValueError):
-                        print("PC로부터의 데이터 수신 문제.")
+                        current_time = time.time()
+                        if current_time - last_print_time >= 1:
+                            try:
+                                print("Waiting for destination")
+                                last_print_time = current_time  # 마지막 출력 시간 업데이트
+                            except:
+                                print("NOOOOOp")
                         continue
 
                     time.sleep(0.1)
@@ -244,7 +262,7 @@ class boat:
                 client_socket.close()
 
     ### receive from PC
-    def socket_pc_send(self, client_socket='localhost', send_port=5001):
+    def socket_pc_send(self, client_socket='0.0.0.0', send_port=5001):
         server_socket_pc_send = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         host = client_socket
         port = send_port
@@ -388,8 +406,6 @@ class boat:
             # print("going1")
             # self.cs, self.addr = self.server_socket.accept()
 
-
-
             # print("done?")
             try:
                 if not t1.is_alive():
@@ -428,6 +444,7 @@ class boat:
             # print("thread alive? t1 : {}, t2 : {}, t3 : {}, t4 : {}".format(t1.is_alive(), t2.is_alive(), t3.is_alive(), t4.is_alive()))
 
             time.sleep(5)
+
 
 Boat = boat()
 Boat.thread_start()
