@@ -156,7 +156,7 @@ class boat:
 
     def serial_nucleo(self):
         # port_nucleo = "/dev/ttyACM0"
-        port_nucleo = "/dev/tty_nucleo_f401re2"
+        port_nucleo = "/dev/tty_nucleo_f401re0"
         baudrate = 115200
 
         while True:
@@ -328,7 +328,10 @@ class boat:
                             'dest_longitude'] is not None):
                     current_latitude = float(self.current_value['latitude'])
                     current_longitude = float(self.current_value['longitude'])
-                    current_heading = float(self.current_value['heading'])
+                    try:
+                        current_heading = float(self.current_value['heading'])
+                    except:
+                        current_heading = 0
                     destination_latitude = float(self.current_value['dest_latitude'])
                     destination_longitude = float(self.current_value['dest_longitude'])
                 else:
@@ -387,8 +390,8 @@ class boat:
                         print("NOOOOOp")
                 # print("self.current_value : \n{}".format(self.current_value))
                 time.sleep(0.05)
-            except:
-                print("되나")
+            except Exception as e:
+                print("auto driving error : ", e)
 
     def thread_start(self):
         t1 = threading.Thread(target=self.serial_gnss)
@@ -445,3 +448,4 @@ class boat:
 
 Boat = boat()
 Boat.thread_start()
+

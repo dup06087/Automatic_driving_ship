@@ -521,13 +521,14 @@ class Window(QMainWindow, form_class):
                 lst_dest_longitude = [coord[0] for coord in self.waypoints_list]
                 lst_dest_latitude = [coord[1] for coord in self.waypoints_list]
 
-                print(lst_dest_latitude, lst_dest_longitude)
-
+                self.worker.message = {"mode_jetson": "AUTO", "dest_latitude": float(lst_dest_latitude[0]),
+                                       "dest_longitude": float(lst_dest_longitude[1])}
+                ### 여기 주는 이유는 처음 초기화 해서 거리값을 받아오기 위해
             except:
                 print("nope")
 
             try:
-                distance = float(self.sensor_data['distance'])
+
                 self.sensor_data['dest_latitude'] = float(lst_dest_latitude[self.cnt_destination])
                 self.sensor_data['dest_longitude'] = float(lst_dest_longitude[self.cnt_destination])
                 # 경도와 위도 데이터 길이가 일치하는지 확인
@@ -537,7 +538,12 @@ class Window(QMainWindow, form_class):
                 destination = (self.sensor_data['dest_latitude'],
                                self.sensor_data['dest_longitude'])
                 print(destination)
-                if distance <= 1:
+
+                distance = self.sensor_data.get('distance')
+                if distance is None:
+                    pass
+
+                elif float(distance) <= 1:
                     if self.prev_destination is None or self.prev_destination != destination:
                         self.cnt_destination += 1
                         self.prev_destination = destination
