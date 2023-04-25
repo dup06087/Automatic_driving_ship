@@ -637,22 +637,32 @@ class Window(QMainWindow, form_class):
         try:
             print("stop received")
             self.flag_simulation = False
-            self.worker.message['mode_jetson'] = "SELF"
-            self.worker.message['dest_latitude'] = None
-            self.worker.message['dest_longitude'] = None
-            self.sensor_data['mode_jetson'] = "SELF"
-            self.sensor_data['dest_latitude'] = None
-            self.sensor_data['dest_longitude'] = None
-            self.edit_destination.setText(str(self.sensor_data["dest_latitude"]) + ", " + str(self.sensor_data["dest_longitude"]))
+            print(1)
             self.simulation_distance_to_target = None
+            print(2)
             self.simulation_pwml_auto = None
+            print(3)
             self.simulation_pwmr_auto = None
-            self.edit_distance_simulation.setText("None")
-            self.edit_pwml_simulation.setText(str(self.simulation_pwml_auto))
-            self.edit_pwmr_simulation.setText(str(self.simulation_pwmr_auto))
+            print(4)
+            self.edit_destination.setText("None")
+            print(8)
+            self.worker.message['mode_jetson'] = "SELF"
+            print(9)
+            self.worker.message['dest_latitude'] = None
+            print(10)
+            self.worker.message['dest_longitude'] = None
+            print(11)
+            self.sensor_data['mode_jetson'] = "SELF"
+            print(12)
+            self.sensor_data['dest_latitude'] = None
+            print(13)
+            self.sensor_data['dest_longitude'] = None
+            print(14)
             # if self.simulation_thread is not None:
+            #     print(15)
             #     self.simulation_thread.join()
-
+            self.simulation_thread = None
+            print(15)
         except Exception as e:
             print("stop simulation error : ", e)
 
@@ -677,7 +687,6 @@ class Window(QMainWindow, form_class):
 
             except ValueError:
                 self.stop_simulation()
-                self.simulation_thread = None
                 self.btn_simulation.setText("Simulation START")
                 return print("nopp")
 
@@ -690,7 +699,6 @@ class Window(QMainWindow, form_class):
             lst_dest_latitude = [coord[1] for coord in self.sim_waypoints_list]
         except:
             self.stop_simulation()
-            self.simulation_thread = None
             self.btn_simulation.setText("Simulation START")
             print("destination_latitude 없음")
             return
@@ -698,17 +706,21 @@ class Window(QMainWindow, form_class):
         current_heading = self.sensor_data['heading'] if self.sensor_data['heading'] is not None else 0
 
         self.sim_cnt_destination = 0
-
+        prev_sim_cnt_destination = 0
         try:
             while self.flag_simulation:
                 print(1)
                 if self.sim_cnt_destination >= len(lst_dest_latitude):
                     self.flag_simulation = False
-                    print("The boat has visited all destinations!")
-                    self.stop_simulation()
-                    self.btn_simulation.setText("Simulation START")
-                    self.simulation_thread = None
-                    break
+                    # print("The boat has visited all destinations!")
+                    # self.stop_simulation()
+                    # print(1)
+                    # self.btn_simulation.setText("Simulation START")
+                    # print(2)
+                    return
+
+                # if prev_sim_cnt_destination == 0 or prev_sim_cnt_destination != self.sim_cnt_destination:
+                #     self.edit_destination.setText(str(self.sim_cnt_destination))
 
                 print(2)
                 destination_latitude = float(lst_dest_latitude[self.sim_cnt_destination])
@@ -719,6 +731,7 @@ class Window(QMainWindow, form_class):
                     current_heading = current_heading - 360
 
                 print(4)
+
                 # Haversine 공식을 사용하여 두 지점 사이의 거리를 계산
                 self.simulation_distance_to_target = haversine((current_latitude, current_longitude),
                                                                (destination_latitude, destination_longitude),
@@ -762,7 +775,6 @@ class Window(QMainWindow, form_class):
                 self.simulation_pwmr_auto = int(PWM_right)
 
                 print(7)
-                print("simulation pwm값 : ", self.simulation_pwmr_auto, self.simulation_pwmr_auto)
                 # print("left : {}, right :{}".format(self.simulation_pwml_auto, self.simulation_pwmr_auto))
                 try:
                     if self.simulation_pwml_auto == self.simulation_pwmr_auto and self.simulation_pwml_auto != 1500:
@@ -795,23 +807,26 @@ class Window(QMainWindow, form_class):
 
                     if self.simulation_distance_to_target < 2:
                         # Stop the boat
+                        prev_sim_cnt_destination = self.sim_cnt_destination
                         self.sim_cnt_destination += 1
                         print("Boat has reached the destination!")
 
                     self.flag_simulation_data_init = True
                     print(self.sim_cnt_destination)
                     print(9)
-                    time.sleep(0.2)
+                    time.sleep(0.1)
                 except Exception as E:
                     print("simulator Error : ", E)
                     time.sleep(1)
 
         except Exception as e:
             self.stop_simulation()
-            self.simulation_thread = None
             self.btn_simulation.setText("Simulation START")
             print("simulation error : ", e)
             return
+
+        self.stop_simulation()
+        self.btn_simulation.setText("Simulation START")
 
 class WebEnginePage(QtWebEngineWidgets.QWebEnginePage):
     def javaScriptAlert(self, securityOrigin: QtCore.QUrl, msg: str):
