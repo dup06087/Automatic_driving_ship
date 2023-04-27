@@ -39,10 +39,10 @@ class Worker(QtCore.QThread):
         # 117.17.187.60::25234
         # recv_host, recv_port = '117.17.187.60', 5001
         # send_host, send_port = '117.17.187.60', 5002
-        # recv_host, recv_port = '223.171.136.213', 5001
-        # send_host, send_port = '223.171.136.213', 5002
-        recv_host, recv_port = '192.168.0.62', 5001
-        send_host, send_port = '192.168.0.62', 5002
+        recv_host, recv_port = '223.171.136.213', 5001
+        send_host, send_port = '223.171.136.213', 5002
+        # recv_host, recv_port = '192.168.0.62', 5001
+        # send_host, send_port = '192.168.0.62', 5002
         stop_event = threading.Event()
         recv_socket = None
         send_socket = None
@@ -442,6 +442,7 @@ class Window(QMainWindow, form_class):
         self.sensor_data["dest_longitude"] = None
         self.sensor_data["pwml_auto"] = None
         self.sensor_data["pwmr_auto"] = None
+        self.cnt_destination += 1
         self.edit_destination.setText(str(self.sensor_data["dest_latitude"]) + ", " + str(self.sensor_data["dest_longitude"]))
         self.edit_mode_jetson.setText("SELF") ########
         self.edit_pwml_auto.setText("None")
@@ -522,7 +523,7 @@ class Window(QMainWindow, form_class):
                 lst_dest_latitude = [coord[1] for coord in self.waypoints_list]
 
                 self.worker.message = {"mode_jetson": "AUTO", "dest_latitude": float(lst_dest_latitude[0]),
-                                       "dest_longitude": float(lst_dest_longitude[1])}
+                                       "dest_longitude": float(lst_dest_longitude[0])}
                 ### 여기 주는 이유는 처음 초기화 해서 거리값을 받아오기 위해
             except:
                 print("nope")
@@ -543,11 +544,11 @@ class Window(QMainWindow, form_class):
                 if distance is None:
                     pass
 
-                elif float(distance) <= 1:
+                elif float(distance) <= 10:
                     if self.prev_destination is None or self.prev_destination != destination:
                         self.cnt_destination += 1
                         self.prev_destination = destination
-
+                        ''' 여기에 self.destination.setText() 추가해야함'''
                         # 최종 목적지 도착 여부 확인 후, stop_driving 호출
                         if self.cnt_destination == len(self.sensor_data['dest_latitude']):
                             self.stop_driving()
