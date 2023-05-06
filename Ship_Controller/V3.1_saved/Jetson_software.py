@@ -11,7 +11,6 @@ import select
 import re
 import atexit
 
-
 class boat:
     def __init__(self):
         self.end = 0
@@ -92,7 +91,7 @@ class boat:
                                 self.current_value['time'] = tokens[2]  # UTC
                                 self.current_value['date'] = tokens[3]  # date
                                 self.current_value['heading'] = float(tokens[4])
-                                self.current_value['roll'] = float(tokens[5])
+                                # self.current_value['roll'] = float(tokens[5])
                                 self.current_value['pitch'] = float(tokens[6])
 
                             except ValueError:
@@ -155,8 +154,8 @@ class boat:
             print("nucleo 연결 해제 안 된 듯")
 
     def serial_nucleo(self):
-        # port_nucleo = "/dev/ttyACM0"
-        port_nucleo = "/dev/tty_nucleo_f401re0"
+        port_nucleo = "/dev/ttyACM0"
+        # port_nucleo = "/dev/tty_nucleo_f401re2"
         baudrate = 115200
 
         while True:
@@ -197,15 +196,17 @@ class boat:
             except Exception as e:
                 print("Nucleo:", e)
                 print("End serial_nucleo")
-                time.sleep(0.1)
+                time.sleep(1)
             finally:
                 try:
                     ser_nucleo.close()
+                    time.sleep(1)
                 except:
+                    time.sleep(1)
                     pass
 
     ### receive from PC
-    def socket_pc_recv(self, client_socket='0.0.0.0', recv_port=5002):
+    def socket_pc_recv(self, client_socket='0.0.0.0', recv_port=5004):
         server_socket_pc_recv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         host = client_socket
         port = recv_port
@@ -262,7 +263,7 @@ class boat:
                 client_socket.close()
 
     ### receive from PC
-    def socket_pc_send(self, client_socket='0.0.0.0', send_port=5001):
+    def socket_pc_send(self, client_socket='0.0.0.0', send_port=5003):
         server_socket_pc_send = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         host = client_socket
         port = send_port

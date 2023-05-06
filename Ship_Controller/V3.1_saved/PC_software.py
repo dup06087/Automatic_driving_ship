@@ -39,8 +39,16 @@ class Worker(QtCore.QThread):
         # 117.17.187.60::25234
         # recv_host, recv_port = '117.17.187.60', 5001
         # send_host, send_port = '117.17.187.60', 5002
-        recv_host, recv_port = '223.171.136.213', 5001
-        send_host, send_port = '223.171.136.213', 5002
+        ''' Wifi 사용시 ''' # 또한, jetson 프로그램에서도 pc send, recv 포트 바꿔줘야함
+        # recv_host, recv_port = '223.171.136.213', 5001
+        # send_host, send_port = '223.171.136.213', 5002
+        ''' Lan port 사용시 ''' # 또한, jetson 프로그램에서도 pc send, recv 포트 바꿔줘야함
+        recv_host, recv_port = '223.171.136.213', 5003
+        send_host, send_port = '223.171.136.213', 5004
+
+        # recv_host, recv_port = 'localhost', 5003
+        # send_host, send_port = 'localhost', 5004
+
         # recv_host, recv_port = '192.168.0.62', 5001
         # send_host, send_port = '192.168.0.62', 5002
         stop_event = threading.Event()
@@ -442,12 +450,16 @@ class Window(QMainWindow, form_class):
         self.sensor_data["dest_longitude"] = None
         self.sensor_data["pwml_auto"] = None
         self.sensor_data["pwmr_auto"] = None
-        self.cnt_destination += 1
         self.edit_destination.setText(str(self.sensor_data["dest_latitude"]) + ", " + str(self.sensor_data["dest_longitude"]))
         self.edit_mode_jetson.setText("SELF") ########
         self.edit_pwml_auto.setText("None")
         self.edit_pwmr_auto.setText("None")
         self.worker.message = {"mode_jetson" : "SELF", "dest_latitude" : None, "dest_longitude" : None}
+
+        # auto_driving 목적지 관련 변수
+        self.prev_destination = None
+        self.cnt_destination = 0
+
 
     def show_sensor_data(self):
         try:
@@ -488,7 +500,7 @@ class Window(QMainWindow, form_class):
             try:
                 self.edit_current_mode.setText(str(self.sensor_data['mode_chk']))
             except Exception as e:
-                print("???", e)
+                print("???", "Jetson 연결 문제")
         except:
             print("why?")
 
@@ -515,21 +527,21 @@ class Window(QMainWindow, form_class):
         if self.is_auto_driving:
             # 'distance', 'dest_latitude', 'dest_longitude' 키가 있는지 확인
             if 'distance' not in self.sensor_data or 'dest_latitude' not in self.sensor_data or 'dest_longitude' not in self.sensor_data:
-                self.worker.message = {"mode_jetson": "AUTO", "dest_latitude": 3, "dest_longitude": 4}
-                return "Incomplete sensor_data"
+                self.worker.message = {"mode_jetson": "AUTO", "dest_latitude": None, "dest_longitude": None}
+                return print("Incomplete sensor_data")
 
             try:
-                lst_dest_longitude = [coord[0] for coord in self.waypoints_list]
-                lst_dest_latitude = [coord[1] for coord in self.waypoints_list]
+                if self.cnt_destination == 0:
+                    lst_dest_longitude = [coord[0] for coord in self.waypoints_list]
+                    lst_dest_latitude = [coord[1] for coord in self.waypoints_list]
 
-                self.worker.message = {"mode_jetson": "AUTO", "dest_latitude": float(lst_dest_latitude[0]),
-                                       "dest_longitude": float(lst_dest_longitude[0])}
+                    self.worker.message = {"mode_jetson": "AUTO", "dest_latitude": float(lst_dest_latitude[0]),
+                                           "dest_longitude": float(lst_dest_longitude[0])}
                 ### 여기 주는 이유는 처음 초기화 해서 거리값을 받아오기 위해
             except:
                 print("nope")
 
             try:
-
                 self.sensor_data['dest_latitude'] = float(lst_dest_latitude[self.cnt_destination])
                 self.sensor_data['dest_longitude'] = float(lst_dest_longitude[self.cnt_destination])
                 # 경도와 위도 데이터 길이가 일치하는지 확인
@@ -544,7 +556,7 @@ class Window(QMainWindow, form_class):
                 if distance is None:
                     pass
 
-                elif float(distance) <= 10:
+                elif float(distance) <= 20:
                     if self.prev_destination is None or self.prev_destination != destination:
                         self.cnt_destination += 1
                         self.prev_destination = destination
@@ -555,15 +567,15 @@ class Window(QMainWindow, form_class):
                             return print("Arrived")
 
             except IndexError:
-                self.worker.message = {"mode_jetson": "AUTO", "dest_latitude": 3, "dest_longitude": 4}
-                return "Index out of range"
+                self.worker.message = {"mode_jetson": "AUTO", "dest_latitude": None, "dest_longitude": None}
+                return print("Index out of range")
 
             except ValueError as ve:
-                self.worker.message = {"mode_jetson": "AUTO", "dest_latitude": 5, "dest_longitude": 6}
-                return f"Value error: {ve}"
+                self.worker.message = {"mode_jetson": "AUTO", "dest_latitude": None, "dest_longitude": None}
+                return print(f"Value error: {ve}")
 
             except Exception as e:
-                self.worker.message = {"mode_jetson": "AUTO", "dest_latitude": 7, "dest_longitude": 8}
+                self.worker.message = {"mode_jetson": "AUTO", "dest_latitude": None, "dest_longitude": None}
                 return print(f"Unexpected error: {e}")
 
             try:
@@ -572,10 +584,11 @@ class Window(QMainWindow, form_class):
                 # print("self.worker.message : ", self.worker.message)
 
             except Exception as e:
-                return f"auto driving error : {e}"
+                self.worker.message = {"mode_jetson": "AUTO", "dest_latitude": None, "dest_longitude": None}
+                return print(f"auto driving error : {e}")
 
         else:
-            pass
+            self.worker.message = {"mode_jetson": "AUTO", "dest_latitude": None, "dest_longitude": None}
 
     def start_driving(self):
         self.is_auto_driving = True
@@ -644,32 +657,20 @@ class Window(QMainWindow, form_class):
         try:
             print("stop received")
             self.flag_simulation = False
-            print(1)
             self.simulation_distance_to_target = None
-            print(2)
             self.simulation_pwml_auto = None
-            print(3)
             self.simulation_pwmr_auto = None
-            print(4)
             self.edit_destination.setText("None")
-            print(8)
             self.worker.message['mode_jetson'] = "SELF"
-            print(9)
             self.worker.message['dest_latitude'] = None
-            print(10)
             self.worker.message['dest_longitude'] = None
-            print(11)
             self.sensor_data['mode_jetson'] = "SELF"
-            print(12)
             self.sensor_data['dest_latitude'] = None
-            print(13)
             self.sensor_data['dest_longitude'] = None
-            print(14)
             # if self.simulation_thread is not None:
             #     print(15)
             #     self.simulation_thread.join()
             self.simulation_thread = None
-            print(15)
         except Exception as e:
             print("stop simulation error : ", e)
 
