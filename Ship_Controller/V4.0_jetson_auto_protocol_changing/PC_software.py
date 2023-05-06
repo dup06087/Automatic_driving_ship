@@ -511,11 +511,14 @@ class Window(QMainWindow, form_class):
             except:
                 pass
 
+            lst_dest_longitude = [coord[0] for coord in self.waypoints_list]
+            lst_dest_latitude = [coord[1] for coord in self.waypoints_list]
+
             try:
                 self.edit_current_mode.setText(str(self.sensor_data['mode_chk']))
-                self.edit_destination.setText(str(self.sensor_data['cnt_destination']))
+                self.edit_destination.setText(str(str(self.sensor_data['cnt_destination']) + ", " + str(lst_dest_longitude[int(self.sensor_data["cnt_destination"])]) + ", " + str(lst_dest_longitude[int(self.sensor_data["cnt_destination"])])))
             except Exception as e:
-                print("???", "Jetson 연결 문제")
+                print("???", e)
         except:
             print("why?")
 
