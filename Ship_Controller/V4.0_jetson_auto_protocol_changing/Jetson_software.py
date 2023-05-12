@@ -149,7 +149,8 @@ class boat:
             print("nucleo 연결 해제 안 된 듯")
 
     def serial_nucleo(self):
-        port_nucleo = "/dev/ttyACM0"
+        port_nucleo = "/dev/ttyACM2"
+        # port_nucleo = "COM8"
         # port_nucleo = "/dev/tty_nucleo_f401re2"
         baudrate = 115200
 
@@ -313,12 +314,10 @@ class boat:
         # print("is driving?? ", self.is_driving)
         while True:  # 무한 :
             try:
-                print('log1')
                 # mode가 auto인지 확인
                 self.is_driving = True if self.current_value['mode_jetson'] == "AUTO" else False
                 # mode가 auto이면 자율운항 실행
                 if not self.is_driving:
-                    print('log1.1')
                     self.current_value['pwml_auto'] = 0
                     self.current_value['pwmr_auto'] = 0
                     self.distance_to_target = None
@@ -330,9 +329,6 @@ class boat:
                 if (self.current_value['latitude'] is not None and self.current_value['longitude'] is not None and
                         self.current_value['dest_latitude'] is not None and self.current_value[
                             'dest_longitude'] is not None):
-                    print("log1.2")
-                    print(self.cnt_destination)
-                    print(len(self.current_value['dest_latitude']))
                     current_latitude = float(self.current_value['latitude'])
                     current_longitude = float(self.current_value['longitude'])
                     current_heading = float(self.current_value['heading'])
@@ -342,7 +338,6 @@ class boat:
                     return print("XXX")
 
                 # 헤딩 값을 -180에서 180 사이의 값으로 변환
-                print("1.5")
                 if current_heading > 180:
                     current_heading = current_heading - 360
 
@@ -381,18 +376,15 @@ class boat:
                 PWM_right = 1500 + Uf - Ud
                 PWM_left = 1500 + Uf + Ud
 
-                print('log2')
                 self.current_value["pwml_auto"] = int(PWM_left)
                 self.current_value["pwmr_auto"] = int(PWM_right)
 
                 if float(self.distance_to_target) <= 10:
-                    print('log3')
                     self.cnt_destination += 1
                     self.current_value['cnt_destination'] = self.cnt_destination
                     ''' 여기에 self.destination.setText() 추가해야함'''
                     # 최종 목적지 도착 여부 확인 후, stop_driving 호출
                     if self.cnt_destination >= len(self.current_value['dest_latitude']):
-                        print('log4')
                         self.is_driving = False
                         self.cnt_destination = 0
                         self.current_value['cnt_destination'] = None

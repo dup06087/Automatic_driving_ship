@@ -49,11 +49,11 @@ class Worker(QtCore.QThread):
         # recv_host, recv_port = '223.171.136.213', 5001
         # send_host, send_port = '223.171.136.213', 5002
         ''' Lan port 사용시 ''' # 또한, jetson 프로그램에서도 pc send, recv 포트 바꿔줘야함
-        # recv_host, recv_port = '223.171.136.213', 5003
-        # send_host, send_port = '223.171.136.213', 5004
+        recv_host, recv_port = '223.171.136.213', 5003
+        send_host, send_port = '223.171.136.213', 5004
         '''local 실험시''' # 마찬가지로, 포트 변경 필요
-        recv_host, recv_port = 'localhost', 5003
-        send_host, send_port = 'localhost', 5004
+        # recv_host, recv_port = 'localhost', 5003
+        # send_host, send_port = 'localhost', 5004
 
         self.ip_address = recv_host
 
