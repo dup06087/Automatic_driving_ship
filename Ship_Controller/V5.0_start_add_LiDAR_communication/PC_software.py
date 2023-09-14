@@ -49,11 +49,11 @@ class Worker(QtCore.QThread):
         # recv_host, recv_port = '223.171.136.213', 5001
         # send_host, send_port = '223.171.136.213', 5002
         ''' Lan port 사용시 ''' # 또한, jetson 프로그램에서도 pc send, recv 포트 바꿔줘야함
-        # recv_host, recv_port = '223.171.136.213', 5003
-        # send_host, send_port = '223.171.136.213', 5004
+        recv_host, recv_port = '223.171.136.213', 5003
+        send_host, send_port = '223.171.136.213', 5004
         '''local 실험시''' # 마찬가지로, 포트 변경 필요
-        recv_host, recv_port = 'localhost', 5003
-        send_host, send_port = 'localhost', 5004
+        # recv_host, recv_port = 'localhost', 5003
+        # send_host, send_port = 'localhost', 5004
 
         self.ip_address = recv_host
 
@@ -63,8 +63,6 @@ class Worker(QtCore.QThread):
         recv_socket = None
         send_socket = None
         print("receiving readying")
-
-        last_print_time = 0
 
         data_buffer = b''
 
@@ -106,16 +104,7 @@ class Worker(QtCore.QThread):
                             try:
                                 received_dict = json.loads(data_line.decode('utf-8'))
                                 self.connection = True
-
-                                current_time = time.time()
-                                if current_time - last_print_time >= 1:
-                                    try:
-                                        print("Jetson >> PC", received_dict)
-                                        last_print_time = current_time  # 마지막 출력 시간 업데이트
-                                    except:
-                                        print("NOOOOOp")
-                                        continue #'이거뭐지????'
-
+                                print("Jetson >> PC", received_dict)
                             except (json.JSONDecodeError, TypeError, ValueError):
                                 print("Failed to decode received data from client.")
                             else:
@@ -149,7 +138,7 @@ class Worker(QtCore.QThread):
                 if send_socket:
                     send_socket.close()
                     send_socket = None
-                time.sleep(5)
+                time.sleep(1)
 
         if recv_socket:
             recv_socket.close()
@@ -187,8 +176,6 @@ class Window(QMainWindow, form_class):
         self.is_auto_driving = False
         self.cnt_destination = 0
         self.prev_destination = None
-
-        self.last_print_time_sensor_data = 0
 
         # self.combo_mode.setEnabled(False)
         self.flag_simulation = False
@@ -529,18 +516,13 @@ class Window(QMainWindow, form_class):
 
             try:
                 self.edit_current_mode.setText(str(self.sensor_data['mode_chk']))
-                self.edit_destination.setText(str(str(self.sensor_data['cnt_destination']) + ", " + str(lst_dest_longitude[int(self.sensor_data["cnt_destination"])]) + ", " + str(lst_dest_longitude[int(self.sensor_data["cnt_destination"])])))
+                self.edit_destination.setText(str(str(self.sensor_data['cnt_destination']) + ", " + str(lst_dest_latitude[int(self.sensor_data["cnt_destination"])]) + ", " + str(lst_dest_longitude[int(self.sensor_data["cnt_destination"])])))
             except Exception as e:
-                print("???", e)
+                pass
+                # print("show sensordata", e)
         except:
-            current_time = time.time()
-            if current_time - self.last_print_time_sensor_data >= 1:
-                try:
-                    print("UI >> not all data received")
-                    self.last_print_time_sensor_data = current_time  # 마지막 출력 시간 업데이트
-                except:
-                    print("NOOOOOp")
-
+            pass
+            # print("why?")
 
         # print(self.sensor_data)
 

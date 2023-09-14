@@ -1,29 +1,10 @@
-import math
-import queue
-import socket
-import time
+import math, queue, socket, time, threading, serial, json, random, select, re, atexit
 from haversine import haversine
-import threading
-import serial
-import json
-import random
-import select
-import re
-import atexit
+from Jetson_initalizing_values import initialize_variables
 
 class boat:
     def __init__(self):
-        self.end = 0
-        self.flag_exit = False
-        self.distance_to_target = 0
-
-        self.isready = False
-        self.isdriving = False
-        self.isfirst = True
-        # enddriving="0"
-        self.driveindex = 0
-
-        self.flag_avoidance = False
+        initialize_variables(self)
 
         self.current_value = {'mode_jetson': "SELF", 'mode_chk': "SELF", 'pwml': None, 'pwmr': None, 'pwml_auto': None,
                               'pwmr_auto': None, 'pwml_sim': None, 'pwmr_sim': None, "latitude": 37.633173,
@@ -33,7 +14,6 @@ class boat:
                               'com_status': None, 'date': None, 'distance': None, "waypoint_latitude" : None, "waypoint_longitude" : None}
 
         # 'dest_latitude': None, 'dest_longitude': None,
-        self.message = None
 
     def dict_to_str(self, d):
         items = []

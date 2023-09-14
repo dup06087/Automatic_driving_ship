@@ -1,29 +1,11 @@
-import math
-import queue
-import socket
-import time
+import math, queue, socket, time, threading, serial, json, random, select, re, atexit
 from haversine import haversine
-import threading
-import serial
-import json
-import random
-import select
-import re
-import atexit
+from Jetson_initalizing_values import initialize_variables
+from Jetson_serial_communication import serial_nucleo, serial_gnss
 
 class boat:
     def __init__(self):
-        self.end = 0
-        self.flag_exit = False
-        self.distance_to_target = 0
-
-        self.isready = False
-        self.isdriving = False
-        self.isfirst = True
-        # enddriving="0"
-        self.driveindex = 0
-
-        self.flag_avoidance = False
+        initialize_variables(self)
 
         self.current_value = {'mode_jetson': "SELF", 'mode_chk': "SELF", 'pwml': None, 'pwmr': None, 'pwml_auto': None,
                               'pwmr_auto': None, 'pwml_sim': None, 'pwmr_sim': None, "latitude": 37.633173,
@@ -33,92 +15,17 @@ class boat:
                               'com_status': None, 'date': None, 'distance': None, "waypoint_latitude" : None, "waypoint_longitude" : None}
 
         # 'dest_latitude': None, 'dest_longitude': None,
-        self.message = None
+        # self.serial_gnss = serial_gnss(port="/dev/ttyUSB0")
+        # self.serial_nucleo = serial_nucleo(port="/dev/ttyUSB0")
+
+        # self.serial_gnss = serial_gnss(port="COM3")
+        # self.serial_nucleo = serial_nucleo(port="/dev/ttyUSB0")
 
     def dict_to_str(self, d):
         items = []
         for k, v in d.items():
             items.append(f"{k} = {v}")
         return ",".join(items)
-
-    def serial_gnss(self):  # NMEA data
-        try:
-            port_gnss = "/dev/ttyACM1"
-            # port_gnss = "/dev/tty_septentrio0" ### 23.04.19 settings >> usb1 > 0
-            # port_gnss = "/dev/tty_septentrio1" ### belonged to septentrio port
-            ser_gnss = serial.Serial(port_gnss, baudrate=115200)
-            data_counter = 0
-            while True:
-                # print("self.running running")
-                if ser_gnss.in_waiting > 0:
-                    data = ser_gnss.readline().decode().strip()
-                    # print("GNSS > Jetson : ",data)
-                    if data.startswith('$'):
-                        tokens = data.split(',')
-
-                        if tokens[0] == '$GPRMC' or tokens[0] == '$GNRMC':
-                            try:
-                                if tokens[2] == "A":
-                                    pass
-                                else:
-                                    self.current_value['validity'] = tokens[2]
-                                    continue
-
-                                self.current_value['validity'] = tokens[2]  ## A = valid, V = not Valid
-
-                                lat_min = float(tokens[3])
-                                lat_deg = int(lat_min / 100)
-                                lat_min -= lat_deg * 100
-                                lat = lat_deg + lat_min / 60
-                                self.current_value['latitude'] = round(lat, 8)
-
-                                lon_sec = float(tokens[5])
-                                lon_deg = int(lon_sec / 100)
-                                lon_min = (lon_sec / 100 - lon_deg) * 100
-
-                                lon = lon_deg + lon_min / 60
-                                self.current_value['longitude'] = round(lon, 8)
-
-                                self.current_value['velocity'] = float(tokens[7])
-                            except ValueError:
-                                continue
-
-                        elif tokens[0] == '$PSSN':  # HRP
-                            try:
-                                self.current_value['time'] = tokens[2]  # UTC
-                                self.current_value['date'] = tokens[3]  # date
-                                self.current_value['heading'] = float(tokens[4])
-                                # self.current_value['roll'] = float(tokens[5])
-                                self.current_value['pitch'] = float(tokens[6])
-
-                            except ValueError:
-                                # print("GNSS >> position fix 占쏙옙占쏙옙")
-                                self.current_value['heading'] = None
-                                self.current_value['roll'] = None
-                                self.current_value['pitch'] = None
-
-                        else:
-                            print("GNSS 占쏙옙占쏙옙 占쏙옙占쏙옙 占쌀뤄옙")
-                        # print("self.current value : ", self.current_value)
-
-                        data_counter += 1
-                        if data_counter % 2 == 0:
-                            self.message = self.dict_to_str(self.current_value)
-                            data_counter = 0
-                            # print(self.message)
-                            # print("GNSS >> Jetson : ", self.current_value)
-
-                else:
-                    time.sleep(0.1)
-
-                # print(self.current_value)
-
-        except Exception as e:
-            print(f'GNSS >> Error : {e}')
-
-        finally:
-            # ser_gnss.close() #占십요가 占쏙옙占쏙옙?
-            pass
 
     def send_data(self, ser, mode, pwm_left, pwm_right):
         send_message = "mode:{},pwm_left:{},pwm_right:{}\n".format(mode, pwm_left, pwm_right).encode()
@@ -532,58 +439,61 @@ class boat:
                 print("auto driving error : ", e)
 
     def thread_start(self):
-        t1 = threading.Thread(target=self.serial_gnss)
-        t2 = threading.Thread(target=self.serial_nucleo)
-        t3 = threading.Thread(target=self.socket_pc_recv)
-        t4 = threading.Thread(target=self.socket_pc_send)
-        t5 = threading.Thread(target=self.auto_driving)
-        t6 = threading.Thread(target=self.socket_LiDAR)
-        while True:
-            # print("executed")
-            if self.end == 1:
-                break
-            # print("going1")
-            # self.cs, self.addr = self.server_socket.accept()
+        self.serial_gnss = serial_gnss(port="COM3")
 
-            # print("done?")
-            try:
-                if not t1.is_alive():
-                    t1 = threading.Thread(target=self.serial_gnss)
-                    t1.start()
-                    print("restart t1")
-                if not t2.is_alive():
-                    t2 = threading.Thread(target=self.serial_nucleo)
-                    t2.start()
-                    print("restart t2")
-                if not t3.is_alive():
-                    t3 = threading.Thread(target=self.socket_pc_recv)
-                    t3.start()
-                    print("restart t3")
-                if not t4.is_alive():
-                    t4 = threading.Thread(target=self.socket_pc_send)
-                    t4.start()
-                    print("restart t4")
-                if not t5.is_alive():
-                    t5 = threading.Thread(target=self.auto_driving)
-                    t5.start()
-                    print("restart t5")
-                if not t6.is_alive():
-                    t6 = threading.Thread(target=self.socket_LiDAR)
-                    t6.start()
-                    print("restart t6")
-
-            except KeyboardInterrupt:
-                # print("Ctrl+C Pressed.")
-                # global self.flag_exit
-                self.flag_exit = True
-                # t1.join()
-                # t2.join()
-                # t3.join()
-                # t4.join()
-
-            # print("thread alive? t1 : {}, t2 : {}, t3 : {}, t4 : {}".format(t1.is_alive(), t2.is_alive(), t3.is_alive(), t4.is_alive()))
-
-            time.sleep(1)
+        # pass
+        # t1 = threading.Thread(target=self.serial_gnss)
+        # t2 = threading.Thread(target=self.serial_nucleo)
+        # t3 = threading.Thread(target=self.socket_pc_recv)
+        # t4 = threading.Thread(target=self.socket_pc_send)
+        # t5 = threading.Thread(target=self.auto_driving)
+        # t6 = threading.Thread(target=self.socket_LiDAR)
+        # while True:
+        #     # print("executed")
+        #     if self.end == 1:
+        #         break
+        #     # print("going1")
+        #     # self.cs, self.addr = self.server_socket.accept()
+        #
+        #     # print("done?")
+        #     try:
+        #         if not t1.is_alive():
+        #             t1 = threading.Thread(target=self.serial_gnss)
+        #             t1.start()
+        #             print("restart t1")
+        #         if not t2.is_alive():
+        #             t2 = threading.Thread(target=self.serial_nucleo)
+        #             t2.start()
+        #             print("restart t2")
+        #         if not t3.is_alive():
+        #             t3 = threading.Thread(target=self.socket_pc_recv)
+        #             t3.start()
+        #             print("restart t3")
+        #         if not t4.is_alive():
+        #             t4 = threading.Thread(target=self.socket_pc_send)
+        #             t4.start()
+        #             print("restart t4")
+        #         if not t5.is_alive():
+        #             t5 = threading.Thread(target=self.auto_driving)
+        #             t5.start()
+        #             print("restart t5")
+        #         if not t6.is_alive():
+        #             t6 = threading.Thread(target=self.socket_LiDAR)
+        #             t6.start()
+        #             print("restart t6")
+        #
+        #     except KeyboardInterrupt:
+        #         # print("Ctrl+C Pressed.")
+        #         # global self.flag_exit
+        #         self.flag_exit = True
+        #         # t1.join()
+        #         # t2.join()
+        #         # t3.join()
+        #         # t4.join()
+        #
+        #     # print("thread alive? t1 : {}, t2 : {}, t3 : {}, t4 : {}".format(t1.is_alive(), t2.is_alive(), t3.is_alive(), t4.is_alive()))
+        #
+        #     time.sleep(1)
 
 Boat = boat()
 Boat.thread_start()
