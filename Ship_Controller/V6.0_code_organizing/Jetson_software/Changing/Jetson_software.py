@@ -2,6 +2,7 @@ import math, queue, socket, time, threading, serial, json, random, select, re, a
 from haversine import haversine
 from Jetson_initalizing_values import initialize_variables
 from Jetson_serial_communication import serial_nucleo, serial_gnss
+from Jetson_socket import JetsonSocket
 
 class boat:
     def __init__(self):
@@ -14,212 +15,20 @@ class boat:
                               'heading': 0, 'roll': None, 'pitch': None, 'validity': None, 'time': None, 'IP': None,
                               'com_status': None, 'date': None, 'distance': None, "waypoint_latitude" : None, "waypoint_longitude" : None}
 
+        self.serial_gnss = serial_gnss(port="COM3")
+        self.serial_nucleo = serial_nucleo(port = "COM7")
+
+
+        # self.jetson_pc_recv = JetsonSocket().socket_pc_recv
+        #
+        # self.jetson_pc_send = JetsonSocket().socket_pc_send
+
         # 'dest_latitude': None, 'dest_longitude': None,
         # self.serial_gnss = serial_gnss(port="/dev/ttyUSB0")
         # self.serial_nucleo = serial_nucleo(port="/dev/ttyUSB0")
 
         # self.serial_gnss = serial_gnss(port="COM3")
         # self.serial_nucleo = serial_nucleo(port="/dev/ttyUSB0")
-
-    def dict_to_str(self, d):
-        items = []
-        for k, v in d.items():
-            items.append(f"{k} = {v}")
-        return ",".join(items)
-
-    def send_data(self, ser, mode, pwm_left, pwm_right):
-        send_message = "mode:{},pwm_left:{},pwm_right:{}\n".format(mode, pwm_left, pwm_right).encode()
-        ser.write(send_message)
-        # print("Jetson >> Nucleo : ", send_message)
-
-    def is_valid_data(self, data):
-        pattern = re.compile(r"mode:(AUTO|SELF|SMLT|WAIT|ERRR|REST|ERR0|ERR1|ERR2|ERR3),pwm_left:(\d+|None),pwm_right:(\d+|None)")
-        return bool(pattern.match(data))
-
-    '''Serial 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙
-        Jetson >> Nucleo占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙 :
-        mode : SELF, pwml : 0, pwmr : 0 >> pwml_auto, pwmr_auto 占십깍옙화 占쏙옙 占식뤄옙 占쏙옙占쏙옙占쏙옙 占쏙옙 占쏙옙占쏙옙 current_value占쏙옙占쏙옙 占쌨아울옙占승곤옙 占쏙옙占쏙옙
-        mode : SELF, pwml : 0, pwmr : 0 >> self 占쏙옙恙∽옙占?占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙 占싹댐옙占쏙옙
-
-        Nucleo >> Jetson
-        mode : AUTO, pwml : 0, pwmr : 0 >> AUTO 占쏙옙恙∽옙占?占쏙옙占쏙옙 占쏙옙占쏙옙
-        mode : SELF, pwml : 4500, pwmr : 0 >> 占쌜쇽옙占신깍옙 占쏙옙占쏙옙 X
-        mode : SELF, pwml : None, pwmr : None >> pwml_auto, pwmr_auto 占쏙옙 X
-        mode : None, pwml : None, pwmr : None >> Jetson占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쌨댐옙 占쏙옙 >> respone 占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙占쏙옙
-        mode : WAIT, pwml : 0, pwmr : 0 >> auto 占쏙옙摸占쏙옙占?占쏙옙
-    '''
-
-    def close_serial_port(self, ser):
-        try:
-            if ser and ser.is_open:
-                ser.close()
-                print("占시몌옙占쏙옙 占쏙옙트占쏙옙 占쏙옙占쏙옙占쏙옙占싹댐옙.")
-        except:
-            print("nucleo 占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙 占쏙옙 占쏙옙")
-
-    def serial_nucleo(self):
-        port_nucleo = "/dev/ttyACM0"
-        # port_nucleo = "COM7"
-        # port_nucleo = "/dev/tty_nucleo_f401re2"
-        baudrate = 115200
-
-        while True:
-            try:
-                ser_nucleo = serial.Serial(port_nucleo, baudrate=baudrate, timeout=0.4)
-                atexit.register(self.close_serial_port, ser_nucleo)
-                last_print_time = time.time()
-
-                while True:
-                    try:
-                        # Generate random mode and pwm values
-                        # mode_str = random.choice(["AUTO", "MANUAL"])
-                        mode_str = self.current_value['mode_jetson']
-                        pwm_left_auto = int(
-                            self.current_value['pwml_auto'] if self.current_value['pwml_auto'] is not None else 1500)
-                        pwm_right_auto = int(
-                            self.current_value['pwmr_auto'] if self.current_value['pwmr_auto'] is not None else 1500)
-                        # Send data and wait for the response
-                        ser_nucleo.flush()
-                        self.send_data(ser_nucleo, mode_str, pwm_left_auto, pwm_right_auto)
-
-                        print(f"Jetson >> Nucleo, mode : {mode_str}, pwml : {pwm_left_auto}, pwmr : {pwm_right_auto}")
-                        response = ser_nucleo.readline().decode().strip()
-
-                        if self.is_valid_data(response):
-                            parsed_data = dict(item.split(":") for item in response.split(","))
-                            self.current_value['mode_chk'] = str(parsed_data.get('mode', 'UNKNOWN').strip())
-                            self.current_value['pwml'] = int(parsed_data.get('pwm_left', '0').strip())
-                            self.current_value['pwmr'] = int(parsed_data.get('pwm_right', '0').strip())
-                        else:
-                            print("nucleo sent unexpected data")
-
-                        print("Nucleo >> Jetson, mode : {}, pwml : {}, pwmr : {}".format(
-                            self.current_value['mode_chk'],
-                            self.current_value['pwml'],
-                            self.current_value['pwmr']))
-                    except:
-                        print("nucleo communication error")
-
-                    # print("Jetson >> Nucleo, send : ", data_str.encode())
-
-                    time.sleep(0.1)
-
-            except Exception as e:
-                print("Nucleo:", e)
-                print("End serial_nucleo")
-                time.sleep(0.005)
-            finally:
-                try:
-                    print("nucleo error")
-                    ser_nucleo.close()
-                    time.sleep(0.005)
-                except:
-                    print("nucleo error2")
-                    time.sleep(0.005)
-                    pass
-
-    ### receive from PC
-    def socket_pc_recv(self, client_socket='0.0.0.0', recv_port=5004):
-        server_socket_pc_recv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        host = client_socket
-        port = recv_port
-        server_address = (host, port)
-        server_socket_pc_recv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server_socket_pc_recv.bind(server_address)
-        server_socket_pc_recv.listen(1)
-
-        while True:
-            try:
-                client_socket, client_address = server_socket_pc_recv.accept()
-                print(f"Connected by {client_address}")
-                last_print_time = time.time()
-                while True:
-                    data = client_socket.recv(1024).strip()
-                    if not data:
-                        break
-
-                    # print(data)
-                    try:
-                        received_dict = json.loads(data.decode('utf-8'))
-                        self.current_value['mode_jetson'] = received_dict['mode_jetson']
-                        self.current_value['dest_latitude'] = received_dict['dest_latitude']
-                        self.current_value['dest_longitude'] = received_dict['dest_longitude']
-                        # print("PC >> Jetson", received_dict)  # 占쏙옙쨔占?占쌩곤옙
-
-                        # if not self.current_value['is_driving']:
-                        #     self.current_value['pwml_auto'] = 0
-                        #     self.current_value['pwmr_auto'] = 0
-
-
-
-                    # print(self.distance_to_target)
-                    # print("x :", throttle_component, "y : ", roll_component)
-                    # print("PWM_right : ", PWM_right, "PWM_left : ", PWM_left)
-
-
-                    except (json.JSONDecodeError, TypeError, ValueError):
-                        current_time = time.time()
-                        if current_time - last_print_time >= 1:
-                            try:
-                                print("Waiting for destination")
-                                last_print_time = current_time  # 占쏙옙占쏙옙占쏙옙 占쏙옙占?占시곤옙 占쏙옙占쏙옙占쏙옙트
-                            except:
-                                print("NOOOOOp")
-                        continue
-
-                    time.sleep(0.1)
-            except Exception as e:
-                print(f"PC recv connection Error: {e}")
-                continue
-
-            finally:
-                client_socket.close()
-
-    ### receive from PC
-    def socket_pc_send(self, client_socket='0.0.0.0', send_port=5003):
-        server_socket_pc_send = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        host = client_socket
-        port = send_port
-        server_address = (host, port)
-        server_socket_pc_send.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server_socket_pc_send.bind(server_address)
-        server_socket_pc_send.listen(1)
-
-        try:
-            while True:
-                client_socket, client_address = server_socket_pc_send.accept()
-
-                try:
-                    print(f"Connected by {client_address}")
-
-                    while True:
-                        ready_to_read, ready_to_write, _ = select.select([], [client_socket], [], 1)
-                        if ready_to_write:
-
-                            if isinstance(self.current_value, dict):
-                                message = json.dumps(self.current_value)
-                                message += '\n'  # 占쏙옙占쏙옙占쏙옙 占쌩곤옙
-                                try:
-                                    client_socket.sendall(message.encode())
-                                    # print("Jetson >> pc, send : ", message)  # 占쏙옙쨔占?占쌩곤옙
-                                except OSError as e:
-                                    print("Error in sending message:", e)  # 占쏙옙占쏙옙 占쏙옙쨔占?占쌩곤옙
-                                    raise Exception("Connection with client has been closed.")
-                            else:
-                                print("current_value is not a dictionary.")
-
-                        time.sleep(0.05)
-
-                except Exception as e:
-                    print(f"PC send connection Error: {e}")
-
-                finally:
-                    client_socket.close()
-
-        except KeyboardInterrupt:
-            print("Send server stopped.")
-        finally:
-            server_socket_pc_send.close()
 
 
     def socket_LiDAR(self):
@@ -439,61 +248,48 @@ class boat:
                 print("auto driving error : ", e)
 
     def thread_start(self):
-        self.serial_gnss = serial_gnss(port="COM3")
+        self.serial_nucleo_thread = threading.Thread(target=self.serial_nucleo.run)
+        self.serial_nucleo_thread.start()
+        self.serial_nucleo_thread.join()
 
-        # pass
-        # t1 = threading.Thread(target=self.serial_gnss)
-        # t2 = threading.Thread(target=self.serial_nucleo)
-        # t3 = threading.Thread(target=self.socket_pc_recv)
-        # t4 = threading.Thread(target=self.socket_pc_send)
-        # t5 = threading.Thread(target=self.auto_driving)
-        # t6 = threading.Thread(target=self.socket_LiDAR)
-        # while True:
-        #     # print("executed")
-        #     if self.end == 1:
-        #         break
-        #     # print("going1")
-        #     # self.cs, self.addr = self.server_socket.accept()
-        #
-        #     # print("done?")
-        #     try:
-        #         if not t1.is_alive():
-        #             t1 = threading.Thread(target=self.serial_gnss)
-        #             t1.start()
-        #             print("restart t1")
-        #         if not t2.is_alive():
-        #             t2 = threading.Thread(target=self.serial_nucleo)
-        #             t2.start()
-        #             print("restart t2")
-        #         if not t3.is_alive():
-        #             t3 = threading.Thread(target=self.socket_pc_recv)
-        #             t3.start()
-        #             print("restart t3")
-        #         if not t4.is_alive():
-        #             t4 = threading.Thread(target=self.socket_pc_send)
-        #             t4.start()
-        #             print("restart t4")
-        #         if not t5.is_alive():
-        #             t5 = threading.Thread(target=self.auto_driving)
-        #             t5.start()
-        #             print("restart t5")
-        #         if not t6.is_alive():
-        #             t6 = threading.Thread(target=self.socket_LiDAR)
-        #             t6.start()
-        #             print("restart t6")
-        #
-        #     except KeyboardInterrupt:
-        #         # print("Ctrl+C Pressed.")
-        #         # global self.flag_exit
-        #         self.flag_exit = True
-        #         # t1.join()
-        #         # t2.join()
-        #         # t3.join()
-        #         # t4.join()
-        #
-        #     # print("thread alive? t1 : {}, t2 : {}, t3 : {}, t4 : {}".format(t1.is_alive(), t2.is_alive(), t3.is_alive(), t4.is_alive()))
-        #
-        #     time.sleep(1)
+        self.serial_gnss_thread = threading.Thread(target=self.serial_gnss)
+        self.serial_gnss_thread.start()
+        self.serial_gnss_thread.join()
+
+        # self.jetson_pc_recv_thread = threading.Thread(target=self.jetson_pc_recv)
+        # self.jetson_pc_recv_thread.start()
+        # self.jetson_pc_recv_thread.join()
+        # self.jetson_pc_send_thread = threading.Thread(target=self.jetson_pc_send)
+        # self.jetson_pc_send_thread.start()
+        while True:
+            # if self.end == 1:
+            #     break
+
+            try:
+                pass
+                # print("trying")
+                if not self.serial_gnss.is_alive():
+                    self.serial_gnss_thread = threading.Thread(target=self.serial_gnss)
+                    self.serial_gnss_thread.start()
+                    self.serial_gnss_thread.join()
+                    print("restart gnss")
+                if not self.serial_nucleo_thread.is_alive():
+                    self.serial_nucleo_thread = threading.Thread(target=self.serial_nucleo.run)
+                    self.serial_nucleo_thread.start()
+                    self.serial_nucleo_thread.join()
+                    print("restart nucleo")
+                # if not self.jetson_pc_recv_thread.is_alive():
+                #     self.jetson_pc_recv_thread = threading.Thread(target=self.jetson_pc_recv)
+                #     self.jetson_pc_recv_thread.start()
+                #     print("restart jetson socket recv")
+                # if not self.jetson_pc_send_thread.is_alive():
+                #     self.jetson_pc_send_thread = threading.Thread(target=self.jetson_pc_send)
+                #     self.jetson_pc_send_thread.start()
+                #     print("restart jetson socket send")
+            except Exception as e:
+                print("passed : ",e)
+                pass
+
 
 Boat = boat()
 Boat.thread_start()

@@ -1,6 +1,77 @@
 import serial, threading, time, atexit
 from queue import Queue
 
+# class SerialCommunicator:
+#     def __init__(self, port, baudrate=115200):
+#         self.port = port
+#         self.baudrate = baudrate
+#         self.serial_port = serial.Serial(self.port, self.baudrate, timeout=0.4)
+#
+#         # 수신 큐 정의
+#         self.receive_queue = Queue()
+#
+#         # Thread setup for receiving
+#         self.receive_thread = threading.Thread(target=self._data_receive_part)
+#         # self.receive_thread.daemon = True
+#         self.receive_thread.start()
+#         print("thread_started")
+#
+#         # Thread setup for processing received data
+#         self.process_receive_thread = threading.Thread(target=self._data_processing_part)
+#         # self.process_receive_thread.daemon = True
+#         self.process_receive_thread.start()
+#         print("thread2_started")
+#
+#         self.lock = threading.Lock()
+#
+#
+#     # receiving
+#     # def _data_receive_part(self):
+#     #     while True:
+#     #         time.sleep(0.2)
+#     #         data = self.serial_port.readline()
+#     #         if data:
+#     #             self.receive_queue.put(data)
+#
+#     def _data_receive_part(self):
+#         while True:
+#             time.sleep(0.2)
+#
+#             with self.lock: # 락 적용
+#                 # 버퍼에 데이터가 있는지 확인
+#                 waiting = self.serial_port.in_waiting
+#                 data = None
+#                 if waiting:
+#                     # 버퍼의 모든 데이터 읽기
+#                     buffer_data = self.serial_port.read(waiting)
+#                     # 줄 단위로 분할
+#                     lines = buffer_data.splitlines()
+#                     # 마지막 줄만 선택
+#                     data = lines[-1] if lines else None
+#
+#             if data:
+#                 self.receive_queue.put(data)
+#
+#     # received data processing
+#     def _data_processing_part(self):
+#         while True:
+#             time.sleep(0.1)
+#             try:
+#                 data = self.receive_queue.get(block=False)
+#                 # data = byte format
+#                 processed_data = self.process_received_data(data)
+#                 print(f"Processed Data: {processed_data}")
+#             except Exception as e:
+#                 print("receive queue error : {}".format(e))
+#
+#
+#     # 오버라이드 가능한 메서드
+#     def process_received_data(self, data):
+#         return data.decode('utf-8').strip()
+#
+#     def close(self):
+#         self.serial_port.close()
+
 class SerialCommunicator:
     def __init__(self, port, baudrate=115200):
         self.port = port
@@ -21,22 +92,66 @@ class SerialCommunicator:
         # self.process_receive_thread.daemon = True
         self.process_receive_thread.start()
         print("thread2_started")
-    # receiving
+
+        self.lock = threading.Lock()
+
+    def add_to_queue(self, data):
+        with self.lock:
+            self.receive_queue.put(data)
+
+    def get_from_queue(self):
+        with self.lock:
+            if not self.receive_queue.empty():
+                return self.receive_queue.get()
+            return None
+
+    # def _data_receive_part(self):
+    #     while True:
+    #         time.sleep(0.2)
+    #
+    #         # 버퍼에 데이터가 있는지 확인
+    #         waiting = self.serial_port.in_waiting
+    #         data = None
+    #         if waiting:
+    #             # 버퍼의 모든 데이터 읽기
+    #             buffer_data = self.serial_port.read(waiting)
+    #             # buffer_data = self.serial_port.readlines(waiting)
+    #             # 줄 단위로 분할
+    #             lines = buffer_data.splitlines()
+    #             # 마지막 줄만 선택
+    #             data = lines[-1] if lines else None
+    #
+    #         if data:
+    #             self.add_to_queue(data)
+
     def _data_receive_part(self):
         while True:
-            data = self.serial_port.readline()
+            time.sleep(0.2)
+
+            lines = []
+            while self.serial_port.in_waiting:
+                line = self.serial_port.readline()
+                if line:
+                    lines.append(line)
+
+            # 버퍼의 모든 줄을 읽은 후 마지막 줄만 선택
+            data = lines[-1] if lines else None
+
             if data:
-                self.receive_queue.put(data)
+                self.add_to_queue(data)
 
     # received data processing
     def _data_processing_part(self):
         while True:
-            data = self.receive_queue.get()
-            if data:
-                #data = byte format
-                print("data : ", data)
-                processed_data = self.process_received_data(data)
-                print(f"Processed Data: {processed_data}")
+            time.sleep(0.1)
+            try:
+                data = self.get_from_queue()
+                if data:
+                    # data = byte format
+                    processed_data = self.process_received_data(data)
+                    print(f"Processed Data: {processed_data}")
+            except Exception as e:
+                print("receive queue error : {}".format(e))
 
     # 오버라이드 가능한 메서드
     def process_received_data(self, data):
@@ -44,32 +159,6 @@ class SerialCommunicator:
 
     def close(self):
         self.serial_port.close()
-
-
-class SerialTransceiver(SerialCommunicator):
-    def __init__(self, port, baudrate=115200):
-        super().__init__(port, baudrate)
-        self.transmit_queue = Queue()
-
-        # Thread setup for processing transmit data and sending
-        self.process_transmit_thread = threading.Thread(target=self._data_transmission_part)
-        self.process_transmit_thread.daemon = True
-        self.process_transmit_thread.start()
-
-    def _data_transmission_part(self):
-        while True:
-            data = self.transmit_queue.get()
-            if data:
-                processed_data = self.prepare_data_for_transmission(data)
-                self.serial_port.write(processed_data)
-
-    def prepare_data_for_transmission(self, data):
-        return data.encode('utf-8')
-
-    # 이제 데이터를 큐에 추가만 해놓으면, 스레드가 처리하고 보냅니다.
-    def send_data(self, data):
-        self.transmit_queue.put(data)
-
 
 class serial_gnss(SerialCommunicator):
     def __init__(self, *args, **kwargs):
@@ -147,50 +236,59 @@ class serial_gnss(SerialCommunicator):
             self.current_value['pitch'] = None
 
 
+class serial_nucleo(SerialCommunicator):
+    def __init__(self, port, baudrate=9600):
+        super().__init__(port, baudrate)
 
-class serial_nucleo(SerialTransceiver):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.port = "/dev/ttyACM0"  # or "COM7" or "/dev/tty_nucleo_f401re2"
-        self.baudrate = 115200
-        self.ser_nucleo = serial.Serial(self.port, baudrate=self.baudrate, timeout=0.4)
-        atexit.register(self.close_serial_port, self.ser_nucleo)
+        # Transmit queue and thread
+        self.transmit_queue = Queue()
+        self.process_transmit_thread = threading.Thread(target=self._data_transmission_part)
+        # self.process_transmit_thread.daemon = True
+        self.process_transmit_thread.start()
 
-    def process_received_data(self, data):
-        # Decode and parse the received data
-        decoded_data = data.decode('utf-8').strip()
+    def send_data(self, data):
+        self.transmit_queue.put(data)
 
-        # Check if the data is valid
-        if self.is_valid_data(decoded_data):
-            parsed_data = dict(item.split(":") for item in decoded_data.split(","))
-            self.current_value['mode_chk'] = str(parsed_data.get('mode', 'UNKNOWN').strip())
-            self.current_value['pwml'] = int(parsed_data.get('pwm_left', '0').strip())
-            self.current_value['pwmr'] = int(parsed_data.get('pwm_right', '0').strip())
-        else:
-            print("nucleo sent unexpected data")
-        return decoded_data
+    def _data_transmission_part(self):
+        while True:
+            time.sleep(0.2)
+            # data = None
+            # while not self.transmit_queue.empty():  # 큐가 비어있지 않은 동안
+            #     data = self.transmit_queue.get()  # 큐에서 데이터를 꺼내옵니다.
+            data = self.transmit_queue.get()
+            if data:
+                processed_data = self.prepare_data_for_transmission(data)
+                self.serial_port.write(processed_data)
 
     def prepare_data_for_transmission(self, data):
-        # Prepare the data string for transmission
-        mode_str = self.current_value['mode_jetson']
-        pwm_left_auto = int(self.current_value['pwml_auto'] if self.current_value['pwml_auto'] is not None else 1500)
-        pwm_right_auto = int(self.current_value['pwmr_auto'] if self.current_value['pwmr_auto'] is not None else 1500)
-        data_str = f"mode:{mode_str},pwm_left:{pwm_left_auto},pwm_right:{pwm_right_auto}"
-        return data_str.encode('utf-8')
+        mode_str = "AUTO"
+        pwm_left_auto = 1200
+        pwm_right_auto = 1500
+        data_str = f"mode:{mode_str},PWML:{pwm_left_auto},PWMR:{pwm_right_auto}\n"
+        return data_str.encode()
 
-    def is_valid_data(self, data):
-        # Define the validation logic for the received data
-        return "mode:" in data and "pwm_left:" in data and "pwm_right:" in data
+    # queue에서 받아온 것 처리해서 쓸모있는 것으로
+    def process_received_data(self, data):
+        decoded_data = data.decode('utf-8').strip()
+        if "mode:" in decoded_data and "PWML:" in decoded_data and "PWMR:" in decoded_data:
+            parsed_data = dict(item.split(":") for item in decoded_data.split(","))
+            parsed_mode = str(parsed_data.get('mode', 'UNKNOWN').strip())
+            parsed_pwml = int(parsed_data.get('PWML', '0').strip())
+            parsed_pwmr = int(parsed_data.get('PWMR', '0').strip())
+            print("parsed : {}, {}, {} ".format(parsed_mode, parsed_pwml, parsed_pwmr))
+        else:
+            print("Received unexpected data")
+        return decoded_data
 
     def run(self):
         while True:
+            time.sleep(0.2)
             try:
-                self.transmit_data()
-                received_data = self.receive_data()
-                self.process_received_data(received_data)
-                time.sleep(0.1)
+                self.send_data("123")
             except Exception as e:
                 print(f"Nucleo communication error: {e}")
                 time.sleep(0.005)
 
-serial_gnss("COM3")
+# serial_gnss("COM3")
+# serial_nucleo("COM7")
+# serial_nucleo("COM7").run()
