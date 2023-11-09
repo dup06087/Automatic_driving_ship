@@ -8,9 +8,10 @@ from jinja2 import Template
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
 from haversine import haversine, Unit
 import socket, threading, queue, json, traceback, select, re, math, serial, folium, io, sys, json
-from PC_ui_control import exe_move_item_up, exe_move_item_down, exe_delete_item, exe_pointing, exe_draw_ship
 from PC_commute_with_jetson import Worker
 from PC_simulator import run_simulator, stop_simulator, pc_simulator
+from PC_ui_control import exe_move_item_up, exe_move_item_down, exe_delete_item, exe_pointing, exe_draw_ship
+from PC_initializing_values import initialize_variables
 
 form_class = uic.loadUiType("V1_UI.ui")[0]
 app = QtWidgets.QApplication(sys.argv)
@@ -28,7 +29,10 @@ class Window(QMainWindow, form_class):
                             'dest_latitude': None, 'dest_longitude' : None, 'velocity': None,
                             'heading': 0, 'roll': None, 'pitch': None, 'validity': None, 'time': None, 'IP': None,
                             'com_status': None, 'date' : None, 'distance' : None}
+        ### mode : None, driving
+
         self.init_folium()
+
         self.worker = Worker()
         self.worker.start()
 
@@ -45,24 +49,7 @@ class Window(QMainWindow, form_class):
         self.timer1000.start(1000)
 
     def init_values(self):
-        self.thread = None
-        self.model = QStandardItemModel(self)
-        self.points_init = False
-        self.on_record = True
-        self.is_auto_driving = False
-        self.cnt_destination = 0
-        self.prev_destination = None
-
-        self.flag_simulation = False
-        self.simulation_thread = None
-        self.simulation_pwml_auto = None
-        self.simulation_pwmr_auto = None
-        self.flag_simulation_data_init = False
-
-        # 여기는 draw_ship 초기 변수 >> 지우면 안 됨
-        self.simulation_lat = 37.63124688
-        self.simulation_lon = 127.07633361
-        self.simulation_head = 0
+        initialize_variables(self)
 
     def init_folium(self):
         coordinate = (self.sensor_data['latitude'], self.sensor_data['longitude'])
@@ -118,7 +105,6 @@ class Window(QMainWindow, form_class):
 
     def update_data(self):
         try:
-            # self.worker.data > jetson한테 받은 데이터 > 데이터 쓰는 중에 가져가는 것 방지
             self.sensor_data = self.worker.data
             # print("self.sensor_data : ", self.sensor_data)
         except:
@@ -398,7 +384,6 @@ class WebEnginePage(QtWebEngineWidgets.QWebEnginePage):
                 index = w.model.index(row, column)
                 item = w.model.data(index)
                 # print(f"Row {row}, Column {column}: {item}")
-
 
 w = Window()
 w.show()

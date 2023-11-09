@@ -24,7 +24,6 @@ import traceback
 import select
 import re
 
-
 form_class = uic.loadUiType("V1_UI.ui")[0]
 app = QtWidgets.QApplication(sys.argv)
 img = Image.open('image.png')
@@ -49,16 +48,16 @@ class Worker(QtCore.QThread):
         # recv_host, recv_port = '223.171.136.213', 5001
         # send_host, send_port = '223.171.136.213', 5002
         ''' Lan port 사용시 ''' # 또한, jetson 프로그램에서도 pc send, recv 포트 바꿔줘야함
-        recv_host, recv_port = '223.171.136.213', 5003
-        send_host, send_port = '223.171.136.213', 5004
+        # recv_host, recv_port = '223.171.136.213', 5003
+        # send_host, send_port = '223.171.136.213', 5004
         '''local 실험시''' # 마찬가지로, 포트 변경 필요
         # recv_host, recv_port = 'localhost', 5003
         # send_host, send_port = 'localhost', 5004
 
-        self.ip_address = recv_host
+        recv_host, recv_port = '192.168.0.21', 5003
+        send_host, send_port = '192.168.0.21', 5004
 
-        # recv_host, recv_port = '192.168.0.62', 5001
-        # send_host, send_port = '192.168.0.62', 5002
+        self.ip_address = recv_host
         stop_event = threading.Event()
         recv_socket = None
         send_socket = None

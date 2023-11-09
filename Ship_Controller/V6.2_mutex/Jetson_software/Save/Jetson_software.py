@@ -1,28 +1,10 @@
-import math
-import queue
-import socket
-import time
+import math, queue, socket, time, threading, serial, json, random, select, re, atexit
 from haversine import haversine
-import threading
-import serial
-import json
-import random
-import select
-import re
-import atexit
+from Jetson_initalizing_values import initialize_variables
 
 class boat:
     def __init__(self):
-        self.end = 0
-        self.flag_exit = False
-        self.distance_to_target = 0
-        self.isready = False
-        self.isdriving = False
-        self.isfirst = True
-        # enddriving="0"
-        self.driveindex = 0
-
-        self.flag_avoidance = False
+        initialize_variables(self)
 
         self.current_value = {'mode_jetson': "SELF", 'mode_chk': "SELF", 'pwml': None, 'pwmr': None, 'pwml_auto': None,
                               'pwmr_auto': None, 'pwml_sim': None, 'pwmr_sim': None, "latitude": 37.633173,
@@ -32,7 +14,6 @@ class boat:
                               'com_status': None, 'date': None, 'distance': None, "waypoint_latitude" : None, "waypoint_longitude" : None}
 
         # 'dest_latitude': None, 'dest_longitude': None,
-        self.message = None
 
     def dict_to_str(self, d):
         items = []
@@ -336,7 +317,7 @@ class boat:
                         if ready_to_write:
                             keys_to_extract = ['latitude', 'longitude', 'velocity', 'heading', 'pitch']
                             # 占쏙옙占싸울옙 占쏙옙킬訶占?占쏙옙占쏙옙
-                            self.LiDAR_data = {key: self.current_value[key] for key in keys_to_extract if key in self.current_value}
+                            self.LiDAR_data = { key : self.current_value[key] for key in keys_to_extract if key in self.current_value}
                             try:
                                 self.LiDAR_data['dest_latitude'] = self.current_value['dest_latitude'][self.cnt_destination]
                                 self.LiDAR_data['dest_longitude'] = self.current_value['dest_longitude'][self.cnt_destination]
