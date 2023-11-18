@@ -18,7 +18,7 @@ class Worker(QtCore.QThread):
         self.data = {
             # dest_latitude, dest_longitude : list, connected with pc def start_driving
             'dest_latitude': None, 'dest_longitude': None, 'mode_pc_command': "SELF", 'com_status': False, # pc get params
-            'mode_chk': "SELF", 'pwml_chk': None, 'pwmr_chk': None, # nucleo get params
+            'mode_chk': None, 'pwml_chk': None, 'pwmr_chk': None, # nucleo get params
             'pwml_auto': None, 'pwmr_auto': None, 'pwml_sim': None, 'pwmr_sim': None, 'cnt_destination' : None, 'distance': None, "waypoint_latitude" : None, "waypoint_longitude" : None, # auto drving
             # gnss get params below
             'velocity': None, 'heading': 0, 'roll': None, 'pitch': None, 'validity': None, 'time': None, 'IP': None, 'date': None,
@@ -29,7 +29,7 @@ class Worker(QtCore.QThread):
         self.init_data = {
             # dest_latitude, dest_longitude : list, connected with pc def start_driving
             'dest_latitude': None, 'dest_longitude': None, 'mode_pc_command': "SELF", 'com_status': False, # pc get params
-            'mode_chk': "SELF", 'pwml_chk': None, 'pwmr_chk': None, # nucleo get params
+            'mode_chk': None, 'pwml_chk': None, 'pwmr_chk': None, # nucleo get params
             'pwml_auto': None, 'pwmr_auto': None, 'pwml_sim': None, 'pwmr_sim': None, 'cnt_destination' : None, 'distance': None, "waypoint_latitude" : None, "waypoint_longitude" : None, # auto drving
             # gnss get params below
             'velocity': None, 'heading': 0, 'roll': None, 'pitch': None, 'validity': None, 'time': None, 'IP': None, 'date': None,
@@ -136,7 +136,7 @@ class Worker(QtCore.QThread):
     def handle_exception(self, e, recv_socket, send_socket):
         self.data['com_status'] = False
         print(f"Error: {e}")
-        traceback.print_exc()
+        # traceback.print_exc()
         self.close_socket(recv_socket)
         self.close_socket(send_socket)
         time.sleep(1)

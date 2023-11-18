@@ -21,6 +21,10 @@ def exe_init_values(self):
     self.simulation_lon = 127.07633361
     self.simulation_head = 0
 
+    self.simulation_distance_to_target = None
+
+    self.btn_stop_driving.setEnabled(False)
+
 def get_destinations_from_gui(self):
     ## 자율 운항 중인지 확인은 >> mode_pc_command == "AUTO" 일 때
     self.waypoints_list = []
@@ -119,34 +123,57 @@ def exe_show_sensor_data(self):
         for key, value in self.sensor_data.items():
             try:
                 edit_name = 'edit_' + key
-                if hasattr(self, edit_name):
+
+                if key == "mode_chk":
+                    if value == 1000:
+                        if hasattr(self, edit_name):
+                            edit_widget = getattr(self, edit_name)
+
+                            if value is not None:
+                                edit_widget.setText("SELF")
+                                # edit_widget.setText(str(1))
+                            else:
+                                edit_widget.setText("")
+
+                    elif value == 2000:
+                        if hasattr(self, edit_name):
+                            edit_widget = getattr(self, edit_name)
+
+                            if value is not None:
+                                edit_widget.setText("AUTO")
+                                # edit_widget.setText(str(1))
+                            else:
+                                edit_widget.setText("")
+
+                elif hasattr(self, edit_name):
                     edit_widget = getattr(self, edit_name)
 
                     if value is not None:
                         edit_widget.setText(str(value))
                         # edit_widget.setText(str(1))
                     else:
-                        edit_widget.setText("None")
+                        edit_widget.setText("")
 
             except:
                 print("not showing data : ", key)
 
-        # need to use pc variable
+        # setting pc variable
         try:
             self.edit_IP.setText(str(self.worker.server_ip))
             self.edit_jetson_socket_status.setText(str(self.worker.jetson_socket_status))
         except Exception as e:
-            print("why??? : ",e )
-
-
+            print("why??? : ", e)
 
         try:
             if self.simulation_distance_to_target is not None:
                 self.edit_distance_simulation.setText(str(self.simulation_distance_to_target))
-                self.edit_pwml_simulation.setText(str(self.simulation_pwml_auto))
-                self.edit_pwmr_simulation.setText(str(self.simulation_pwmr_auto))
+                self.edit_pwml_sim.setText(str(self.simulation_pwml_auto))
+                self.edit_pwmr_sim.setText(str(self.simulation_pwmr_auto))
+            else:
+                self.edit_distance_simulation.setText("")
+
         except Exception as e:
-            # print("why...? ", e)
+            print(e)
             pass
 
         lst_dest_longitude = [coord[0] for coord in self.waypoints_list]
@@ -154,17 +181,11 @@ def exe_show_sensor_data(self):
 
         try:
             self.edit_current_mode.setText(str(self.sensor_data['mode_chk']))
-            self.edit_destination.setText(str(str(self.sensor_data['cnt_destination']) + ", " + str(
-                lst_dest_latitude[int(self.sensor_data["cnt_destination"])]) + ", " + str(
-                lst_dest_longitude[int(self.sensor_data["cnt_destination"])])))
         except Exception as e:
             pass
             # print("show sensordata", e)
     except:
         pass
-        # print("why?")
-
-    # print(self.sensor_data)
 
 def exe_move_item_up(instance):
     try:

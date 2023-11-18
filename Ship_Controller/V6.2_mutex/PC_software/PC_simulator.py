@@ -5,9 +5,7 @@ from haversine import haversine
 
 def run_simulator(self):
     self.flag_simulation = True
-    
-    self.worker.message = {"mode_pc_command": "SMLT", "dest_latitude": 2, "dest_longitude": 1}
-    
+
     self.sim_waypoints_list = []
     view = self.waypoints
     model = view.model()
@@ -33,33 +31,36 @@ def run_simulator(self):
         current_longitude = float(self.sensor_data['longitude'])
         lst_dest_longitude = [coord[0] for coord in self.sim_waypoints_list]
         lst_dest_latitude = [coord[1] for coord in self.sim_waypoints_list]
+
     except:
         self.stop_simulation()
         self.btn_simulation.setText("Simulation START")
         print("destination_latitude 없음")
         return
     
-    current_heading = self.sensor_data['heading'] if self.sensor_data['heading'] is not 0 else random.randint(0, 360)
+    current_heading = self.sensor_data['heading'] if self.sensor_data['heading'] != 0 else random.randint(0, 360)
     print(f"current heading value : {current_heading}")
     self.sim_cnt_destination = 0
     prev_sim_cnt_destination = 0
     try:
         while self.flag_simulation:
             if self.sim_cnt_destination >= len(lst_dest_latitude):
-                self.flag_simulation = False
-                # print("The boat has visited all destinations!")
-                # self.stop_simulation()
-                # print(1)
-                # self.btn_simulation.setText("Simulation START")
-                # print(2)
+                self.stop_simulation()
+                self.btn_simulation.setText("Simulation START")
+                self.btn_drive.setEnabled(True)
+                self.btn_stop_driving.setEnabled(False)
+
+
+                # self.flag_simulation = False
+
                 return
-    
-            # if prev_sim_cnt_destination == 0 or prev_sim_cnt_destination != self.sim_cnt_destination:
-            #     self.edit_destination.setText(str(self.sim_cnt_destination))
     
             destination_latitude = float(lst_dest_latitude[self.sim_cnt_destination])
             destination_longitude = float(lst_dest_longitude[self.sim_cnt_destination])
             print(current_latitude, current_longitude, destination_longitude, destination_latitude)
+
+            self.worker.message = {"mode_pc_command": "SMLT", "dest_latitude": destination_latitude, "dest_longitude": destination_longitude}
+
             if current_heading > 180:
                 current_heading = current_heading - 360
     
@@ -137,7 +138,8 @@ def run_simulator(self):
                     prev_sim_cnt_destination = self.sim_cnt_destination
                     self.sim_cnt_destination += 1
                     print("Boat has reached the destination!")
-    
+
+
                 self.flag_simulation_data_init = True
                 print(self.sim_cnt_destination)
                 time.sleep(0.1)
@@ -167,11 +169,18 @@ def pc_simulator(self):
         self.simulation_thread = threading.Thread(target=self.simulation)
         self.simulation_thread.start()
         self.btn_simulation.setText("Simulation STOP")
+        self.btn_drive.setEnabled(False)
+        self.btn_stop_driving.setEnabled(False)
+        self.btn_simulation.setEnabled(True)
     else:
         self.stop_simulation()
-        self.simulation_thread = None
+        # self.simulation_thread = None
         self.btn_simulation.setText("Simulation START")
+        self.btn_drive.setEnabled(True)
+        self.btn_stop_driving.setEnabled(False)
+        self.btn_simulation.setEnabled(True)
 
+# execute with stop_simulation()
 def stop_simulator(self):
     try:
         print("stop received")
@@ -179,18 +188,11 @@ def stop_simulator(self):
         self.simulation_distance_to_target = None
         self.simulation_pwml_auto = None
         self.simulation_pwmr_auto = None
-        self.edit_destination.setText("None")
-        self.worker.message['mode_pc_command'] = "self"
+
+        self.worker.message['mode_pc_command'] = "SELF"
         self.worker.message['dest_latitude'] = None
         self.worker.message['dest_longitude'] = None
-        self.sensor_data['mode_pc_command'] = "self"
-        self.sensor_data['dest_latitude'] = None
-        self.sensor_data['dest_longitude'] = None
-        # if self.simulation_thread is not None:
-        #     print(15)
-        #     self.simulation_thread.join()
         self.simulation_thread = None
-        self.sensor_data['pwml_auto'] = self.sensor_data['pwmr_auto'] = None
 
     except Exception as e:
         print("stop simulation error : ", e)

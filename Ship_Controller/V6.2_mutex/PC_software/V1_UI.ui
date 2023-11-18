@@ -278,18 +278,8 @@
           <property name="text">
            <string>Driving Stop</string>
           </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="btn_pointing">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="text">
-           <string>Pointing STOP</string>
+          <property name="default">
+           <bool>false</bool>
           </property>
          </widget>
         </item>
@@ -303,6 +293,19 @@
           </property>
           <property name="text">
            <string>Simulation START</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btn_pointing">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="text">
+           <string>Pointing STOP</string>
           </property>
          </widget>
         </item>
@@ -328,7 +331,7 @@
             </property>
             <property name="font">
              <font>
-              <pointsize>11</pointsize>
+              <pointsize>15</pointsize>
               <weight>75</weight>
               <bold>true</bold>
              </font>
@@ -505,7 +508,7 @@
             </property>
             <property name="font">
              <font>
-              <pointsize>11</pointsize>
+              <pointsize>15</pointsize>
               <weight>75</weight>
               <bold>true</bold>
              </font>
@@ -575,27 +578,7 @@
          </layout>
         </item>
         <item>
-         <widget class="QLabel" name="label_4">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>10</pointsize>
-            <weight>75</weight>
-            <bold>true</bold>
-           </font>
-          </property>
-          <property name="text">
-           <string>자율운항 </string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_5">
+         <layout class="QHBoxLayout" name="horizontalLayout_8">
           <item>
            <widget class="QLabel" name="label_7">
             <property name="sizePolicy">
@@ -653,6 +636,37 @@
             </property>
            </widget>
           </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="Line" name="line_3">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="label_4">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="text">
+           <string>자율운항 </string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_5">
           <item>
            <widget class="QLabel" name="lbl_distance">
             <property name="sizePolicy">
@@ -783,7 +797,7 @@
          </layout>
         </item>
         <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_13" stretch=""/>
+         <layout class="QHBoxLayout" name="horizontalLayout_13"/>
         </item>
         <item>
          <widget class="Line" name="line_2">
@@ -802,7 +816,7 @@
           </property>
           <property name="font">
            <font>
-            <pointsize>10</pointsize>
+            <pointsize>15</pointsize>
             <weight>75</weight>
             <bold>true</bold>
            </font>
@@ -814,63 +828,6 @@
         </item>
         <item>
          <layout class="QHBoxLayout" name="horizontalLayout_10">
-          <item>
-           <widget class="QLabel" name="label_10">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Fixed" vsizetype="Minimum">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>40</width>
-              <height>0</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>40</width>
-              <height>16777215</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>dest</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLineEdit" name="edit_destination_2">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>16777215</height>
-             </size>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLineEdit" name="edit_destination_4">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>16777215</height>
-             </size>
-            </property>
-           </widget>
-          </item>
           <item>
            <widget class="QLabel" name="lbl_distance_2">
             <property name="sizePolicy">
@@ -937,7 +894,7 @@
             </property>
             <property name="maximumSize">
              <size>
-              <width>40</width>
+              <width>0</width>
               <height>16777215</height>
              </size>
             </property>
@@ -1009,7 +966,7 @@
          </layout>
         </item>
         <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_15" stretch=""/>
+         <layout class="QHBoxLayout" name="horizontalLayout_15"/>
         </item>
         <item>
          <widget class="QFrame" name="frame_3">
@@ -1033,7 +990,7 @@
             </property>
             <property name="font">
              <font>
-              <pointsize>11</pointsize>
+              <pointsize>15</pointsize>
               <weight>75</weight>
               <bold>true</bold>
              </font>
@@ -1162,7 +1119,7 @@
           </property>
           <property name="font">
            <font>
-            <pointsize>11</pointsize>
+            <pointsize>15</pointsize>
             <weight>75</weight>
             <bold>true</bold>
            </font>
@@ -1533,7 +1490,6 @@
   <tabstop>btn_down</tabstop>
   <tabstop>btn_delete</tabstop>
   <tabstop>btn_drive</tabstop>
-  <tabstop>btn_pointing</tabstop>
   <tabstop>btn_simulation</tabstop>
   <tabstop>edit_mode_chk</tabstop>
   <tabstop>edit_pwml_chk</tabstop>
@@ -1545,7 +1501,6 @@
   <tabstop>edit_pwmr_sim</tabstop>
   <tabstop>edit_latitude</tabstop>
   <tabstop>edit_longitude</tabstop>
-  <tabstop>edit_dest_longitude</tabstop>
   <tabstop>edit_velocity</tabstop>
   <tabstop>edit_heading</tabstop>
   <tabstop>edit_validity</tabstop>

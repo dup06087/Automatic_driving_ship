@@ -24,7 +24,7 @@ class Window(QMainWindow, form_class):
         self.sensor_data = {
             # dest_latitude, dest_longitude : list, connected with pc def start_driving
             'dest_latitude': None, 'dest_longitude': None, 'mode_pc_command': "SELF", 'com_status': None, # pc get params
-            'mode_chk': "SELF", 'pwml_chk': None, 'pwmr_chk': None, # nucleo get params
+            'mode_chk': None, 'pwml_chk': None, 'pwmr_chk': None, # nucleo get params
             'pwml_auto': None, 'pwmr_auto': None, 'pwml_sim': None, 'pwmr_sim': None, 'cnt_destination' : None, 'distance': None, "waypoint_latitude" : None, "waypoint_longitude" : None, # auto drving
             # gnss get params below
             'velocity': None, 'heading': 0, 'roll': None, 'pitch': None, 'validity': None, 'time': None, 'IP': None, 'date': None,
@@ -140,34 +140,33 @@ class Window(QMainWindow, form_class):
     def get_selected_coordinates(self) -> tuple:
         exe_get_selected_coordinates(self)
 
+    def stop_simulation(self):
+        stop_simulator(self)
+
     # btn 연결 된 것
     def simulator(self):
         pc_simulator(self)
 
-    def stop_simulation(self):
-        stop_simulator(self)
-
-    #### self.simulator에서 실행됨
+    #### self.simulator에서 thread로 실행됨
     def simulation(self):
         run_simulator(self)
 
     def stop_driving(self):
         # message 활성화
-        self.worker.message = {"mode_pc_command" : "SELF", "dest_latitude" : None, "dest_longitude" : None} # send는 따로 sensor_data 안 거치고 바로 보냄
-        # self.sensor_data['mode_pc_command'] = "SELF"
-        # self.sensor_data["dest_latitude"] = None
-        # self.sensor_data["dest_longitude"] = None
-        # self.sensor_data["pwml_auto"] = None
-        # self.sensor_data["pwmr_auto"] = None
-        self.edit_destination.setText(str(self.sensor_data["dest_latitude"]) + ", " + str(self.sensor_data["dest_longitude"]))
+        self.btn_drive.setEnabled(True)
+        self.btn_stop_driving.setEnabled(False)
+        self.btn_simulation.setEnabled(True)
 
-        self.edit_pwml_auto.setText("None")
-        self.edit_pwmr_auto.setText("None")
+        self.worker.message = {"mode_pc_command" : "SELF", "dest_latitude" : None, "dest_longitude" : None} # send는 따로 sensor_data 안 거치고 바로 보냄
 
     # start_driving 버튼 직접 연결된 slot
     # 아직 첫번째 목적지만
     def start_driving(self):
         get_destinations_from_gui(self)
+
+        self.btn_drive.setEnabled(False)
+        self.btn_stop_driving.setEnabled(True)
+        self.btn_simulation.setEnabled(False)
 
         self.worker.message = {"mode_pc_command": "AUTO", "dest_latitude": self.lst_dest_latitude, # send는 따로 sensor_data 안 거치고 바로 보냄
                                "dest_longitude": self.lst_dest_longitude}
