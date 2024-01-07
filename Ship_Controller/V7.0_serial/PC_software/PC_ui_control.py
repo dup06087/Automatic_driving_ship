@@ -4,8 +4,48 @@ from jinja2 import Template
 from PyQt5.QtGui import QStandardItemModel
 import math
 import time
-def draw_obstacle(self):
-    pass
+
+# 리스트가 None이거나 비어있는 경우 아무것도 하지 않음
+def exe_draw_obstacle(self):
+    if not self.worker.obstacle_data:
+        return
+
+    # 기존에 그려진 장애물 제거
+    self.view.page().runJavaScript("if (window.obstaclesLayer) {window.obstaclesLayer.clearLayers();}")
+
+    latitude = self.worker.received_data["latitude"]
+    longitude = self.worker.received_data["longitude"]
+    # 새 장애물 그리기
+    for obstacle in self.worker.obstacle_data:
+        dx, dy, width, height = obstacle
+
+        # 변환된 좌표 계산
+        min_lat, min_lon = self.meters_to_latlon(latitude, longitude, dx, dy)
+        max_lat, max_lon = self.meters_to_latlon(latitude, longitude, dx + width, dy + height)
+
+        js_code = Template(
+            """
+            if (!window.obstaclesLayer) {
+                window.obstaclesLayer = L.layerGroup().addTo({{ map }});
+            }
+            var bounds = [[{{ min_lat }}, {{ min_lon }}], [{{ max_lat }}, {{ max_lon }}]];
+            var rectangle = L.rectangle(
+                bounds, {
+                    "color": "#ff0000",
+                    "weight": 1,
+                    "fillOpacity": 0.2
+                }
+            );
+            window.obstaclesLayer.addLayer(rectangle);
+            """
+        ).render(
+            map=self.m.get_name(),
+            min_lat=min_lat,
+            min_lon=min_lon,
+            max_lat=max_lat,
+            max_lon=max_lon
+        )
+        self.view.page().runJavaScript(js_code)
 
 def exe_init_values(self):
     self.thread = None

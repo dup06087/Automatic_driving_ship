@@ -27,6 +27,8 @@ class Client(QThread):
             "receive_obstacle_socket": False
         }
 
+        self.is_communicating = False
+
 
     def run(self):
         while True:
@@ -52,14 +54,16 @@ class Client(QThread):
                     receive_thread.start()
                     receive_obstacle_thread.start()
 
-                    send_thread.join()
-                    receive_thread.join()
-                    receive_obstacle_thread.join()
+                    self.is_communicating = True
+                    while self.is_communicating:
+                        print("communicating well")
+                        time.sleep(1)
+
+                    print("socket restart")
 
             except (ConnectionRefusedError, ConnectionResetError, OSError, BrokenPipeError, socket.timeout) as e:
                 print(f"Connection error: {e}. Retrying in 5 seconds...")
                 time.sleep(5)
-
 
     def update_socket_status(self, socket_name, status):
         self.socket_statuses[socket_name] = status
@@ -98,6 +102,8 @@ class Client(QThread):
 
             time.sleep(0.2)  # 데이터 확인 간격
 
+        self.is_communicating = False
+
     def handle_receive_data(self, receive_socket):
         self.update_socket_status("receive_socket", True)
         data = ""
@@ -111,7 +117,7 @@ class Client(QThread):
                     received_dict = json.loads(data.decode('utf-8'))
                     self.received_data = received_dict
                     self.update_socket_status("receive_socket", True)
-                    print(f"recv {self.received_data}")
+                    # print(f"recv {self.received_data}")
 
                 except json.JSONDecodeError as e:
                     print("receive json error : ", e)
@@ -134,13 +140,15 @@ class Client(QThread):
 
             time.sleep(0.01)
 
+        self.is_communicating = False
+
+
     def handle_receive_obstacle_data(self, receive_socket):
         # TODO : overflow 해결해야함함
         data_buffer = ""
         self.update_socket_status("receive_obstacle_socket", True)
 
         while True:
-            print("obstacle running")
             try:
                 data = receive_socket.recv(1024).decode().strip()
                 if not data:
@@ -159,7 +167,7 @@ class Client(QThread):
                         obstacle_parsed_data = json.loads(message)
                         self.obstacle_data = obstacle_parsed_data
                         self.update_socket_status("receive_obstacle_socket", True)
-                        print("obstacle : ", self.obstacle_data)
+                        # print("obstacle : ", self.obstacle_data)
 
                         # Discard processed data
                         data_buffer = data_buffer[end_index + 3:]
@@ -170,7 +178,7 @@ class Client(QThread):
                         data_buffer = ""
 
                 elif start_index != -1 and end_index == -1:
-                    print("index not found")
+                    # print("index not found")
                     # ']]\n' not found, keep the buffer and wait for more data
                     continue
 
@@ -202,6 +210,8 @@ class Client(QThread):
                 break
 
             time.sleep(0.1)
+
+        self.is_communicating = False
 
 
     def validate_data(self, data):

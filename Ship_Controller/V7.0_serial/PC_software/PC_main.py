@@ -59,14 +59,20 @@ class Window(QMainWindow, form_class):
         self.timer100.timeout.connect(self.show_sensor_data)
 
         self.timer1000 = QTimer(self)
-        self.timer1000.timeout.connect(self.draw_ship)
-        self.timer1000.timeout.connect(self.route_generate)
-        self.timer1000.timeout.connect(self.draw_obstacle)
+        self.timer1000.timeout.connect(self.def_timer_1000)
+        # self.timer1000.timeout.connect(self.draw_ship)
+        # self.timer1000.timeout.connect(self.route_generate)
+        # self.timer1000.timeout.connect(self.draw_obstacle)
         # self.timer1000.timeout.connect(lambda: self.draw_obstacle(self.worker, self.view))
 
         #
         self.timer100.start(100)  # 5 seconds
         self.timer1000.start(1000)
+
+    def def_timer_1000(self):
+        self.draw_ship()
+        self.route_generate()
+        self.draw_obstacle()
 
     def meters_to_latlon(self, lat, lon, delta_x, delta_y):
         # 지구 반경 (미터 단위)
@@ -83,117 +89,7 @@ class Window(QMainWindow, form_class):
         return new_lat, new_lon
 
     def draw_obstacle(self):
-        # 리스트가 None이거나 비어있는 경우 아무것도 하지 않음
-        if not self.worker.obstacle_data:
-            return
-
-        # 기존에 그려진 장애물 제거
-        self.view.page().runJavaScript("if (window.obstaclesLayer) {window.obstaclesLayer.clearLayers();}")
-
-        latitude = self.worker.received_data["latitude"]
-        longitude = self.worker.received_data["longitude"]
-        # 새 장애물 그리기
-        for obstacle in self.worker.obstacle_data:
-            dx, dy, width, height = obstacle
-
-            # 변환된 좌표 계산
-            min_lat, min_lon = self.meters_to_latlon(latitude, longitude, dx, dy)
-            max_lat, max_lon = self.meters_to_latlon(latitude, longitude, dx + width, dy + height)
-
-            js_code = Template(
-                """
-                if (!window.obstaclesLayer) {
-                    window.obstaclesLayer = L.layerGroup().addTo({{ map }});
-                }
-                var bounds = [[{{ min_lat }}, {{ min_lon }}], [{{ max_lat }}, {{ max_lon }}]];
-                var rectangle = L.rectangle(
-                    bounds, {
-                        "color": "#ff0000",
-                        "weight": 1,
-                        "fillOpacity": 0.2
-                    }
-                );
-                window.obstaclesLayer.addLayer(rectangle);
-                """
-            ).render(
-                map=self.m.get_name(),
-                min_lat=min_lat,
-                min_lon=min_lon,
-                max_lat=max_lat,
-                max_lon=max_lon
-            )
-            self.view.page().runJavaScript(js_code)
-
-    # def calculate_rotated_obstacle(self, center_lat, center_lon, width, height, heading, meters_to_latlon_func):
-    #     """
-    #     Calculate the vertices of a rotated rectangle (obstacle).
-    #
-    #     Args:
-    #     center_lat (float): Latitude of the center of the rectangle.
-    #     center_lon (float): Longitude of the center of the rectangle.
-    #     width (float): Width of the rectangle in meters.
-    #     height (float): Height of the rectangle in meters.
-    #     heading (float): Heading angle of the rectangle in degrees.
-    #     meters_to_latlon_func (function): Function to convert meters to latitude and longitude.
-    #
-    #     Returns:
-    #     list: List of tuples containing the latitude and longitude of each vertex.
-    #     """
-    #     # Convert heading to radians and calculate corner offsets
-    #     angle_rad = radians(heading)
-    #     dx = width / 2
-    #     dy = height / 2
-    #
-    #     # Calculate corner points with rotation
-    #     offsets = [
-    #         (-dx, -dy), (dx, -dy),
-    #         (dx, dy), (-dx, dy)
-    #     ]
-    #     rotated_offsets = [
-    #         (
-    #             offset[0] * cos(angle_rad) - offset[1] * sin(angle_rad),
-    #             offset[0] * sin(angle_rad) + offset[1] * cos(angle_rad)
-    #         ) for offset in offsets
-    #     ]
-    #
-    #     # Convert meter offsets to lat/lon
-    #     vertices = [self.meters_to_latlon(center_lat, center_lon, *offset) for offset in rotated_offsets]
-    #
-    #     return vertices
-    #
-    # # Modify the draw_obstacle function to include heading and use the new calculation
-    # def draw_obstacle(self, worker, view):
-    #     if not worker.obstacle_data:
-    #         return
-    #
-    #     view.page().runJavaScript("if (window.obstaclesLayer) {window.obstaclesLayer.clearLayers();}")
-    #
-    #     for obstacle in worker.obstacle_data:
-    #         center_lat, center_lon, width, height, heading = obstacle  # Assuming obstacle data includes heading
-    #
-    #         # Calculate rotated rectangle vertices
-    #         vertices = self.calculate_rotated_obstacle(center_lat, center_lon, width, height, heading,
-    #                                                    self.meters_to_latlon)
-    #
-    #         # Format vertices for JavaScript
-    #         formatted_vertices = '[' + ', '.join([f'[{lat}, {lon}]' for lat, lon in vertices]) + ']'
-    #
-    #         # JavaScript code for drawing rotated rectangle
-    #         js_code = f"""
-    #         if (!window.obstaclesLayer) {{
-    #             window.obstaclesLayer = L.layerGroup().addTo(map);
-    #         }}
-    #         var bounds = {formatted_vertices};
-    #         var polygon = L.polygon(
-    #             bounds, {{
-    #                 color: "#ff0000",
-    #                 weight: 1,
-    #                 fillOpacity: 0.2
-    #             }}
-    #         );
-    #         window.obstaclesLayer.addLayer(polygon);
-    #         """
-    #         view.page().runJavaScript(js_code)
+        exe_draw_obstacle(self)
 
     def init_values(self):
         exe_init_values(self)
