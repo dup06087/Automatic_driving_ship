@@ -9,11 +9,14 @@ from PyQt5.QtGui import QStandardItem
 from haversine import haversine, Unit
 import socket, threading, queue, json, traceback, select, re, math, serial, folium, io, sys, json
 from PC_ui_control import *
-from PC_commute_with_jetson import Worker
+from PC_commute_with_jetson import Client
 from PC_simulator import run_simulator, stop_simulator, pc_simulator
 from qt_material import apply_stylesheet
 import random
 form_class = uic.loadUiType("V1_UI.ui")[0]
+from math import radians, cos, sin
+
+
 
 class Window(QMainWindow, form_class):
     def __init__(self):
@@ -45,56 +48,57 @@ class Window(QMainWindow, form_class):
 
         self.mutex = QMutex()
 
-        self.worker = Worker()
+        self.worker = Client()
         self.worker.start()
 
+
         ###
+
         self.timer100 = QTimer(self)
         self.timer100.timeout.connect(self.update_data)
         self.timer100.timeout.connect(self.show_sensor_data)
-        self.timer100.timeout.connect(self.draw_obstacle)
-        # self.timer100.timeout.connect(self.update_obstacles)
 
-        #
         self.timer1000 = QTimer(self)
         self.timer1000.timeout.connect(self.draw_ship)
         self.timer1000.timeout.connect(self.route_generate)
+        self.timer1000.timeout.connect(self.draw_obstacle)
+        # self.timer1000.timeout.connect(lambda: self.draw_obstacle(self.worker, self.view))
+
         #
         self.timer100.start(100)  # 5 seconds
         self.timer1000.start(1000)
-        self.list_obstacles = []
 
-    def update_obstacles(self):
-        # 리스트 초기화
-        self.list_obstacles.clear()
+    def meters_to_latlon(self, lat, lon, delta_x, delta_y):
+        # 지구 반경 (미터 단위)
+        earth_radius = 6378137.0
 
-        # 현재 위치 기준으로 랜덤 사각형 좌표 생성
-        base_lat, base_lon = 37.63144746129919, 127.07645840984198
-        for _ in range(5):
-            delta_lat = random.uniform(-0.001, 0.001)
-            delta_lon = random.uniform(-0.001, 0.001)
-            min_lat = base_lat + delta_lat
-            min_lon = base_lon + delta_lon
-            width = random.uniform(0.0001, 0.0005)
-            height = random.uniform(0.0001, 0.0005)
-            self.list_obstacles.append([min_lat, min_lon, width, height])
+        # 라디안 단위로 변환
+        dLat = delta_y / earth_radius
+        dLon = delta_x / (earth_radius * math.cos(math.pi * lat / 180))
 
-        # 장애물 그리기
-        # self.draw_obstacle()
+        # 변환된 위도/경도
+        new_lat = lat + dLat * 180 / math.pi
+        new_lon = lon + dLon * 180 / math.pi
+
+        return new_lat, new_lon
 
     def draw_obstacle(self):
         # 리스트가 None이거나 비어있는 경우 아무것도 하지 않음
-        if not self.list_obstacles:
+        if not self.worker.obstacle_data:
             return
 
         # 기존에 그려진 장애물 제거
         self.view.page().runJavaScript("if (window.obstaclesLayer) {window.obstaclesLayer.clearLayers();}")
 
+        latitude = self.worker.received_data["latitude"]
+        longitude = self.worker.received_data["longitude"]
         # 새 장애물 그리기
-        for obstacle in self.list_obstacles:
-            min_lat, min_lon, width, height = obstacle
-            max_lat = min_lat + height
-            max_lon = min_lon + width
+        for obstacle in self.worker.obstacle_data:
+            dx, dy, width, height = obstacle
+
+            # 변환된 좌표 계산
+            min_lat, min_lon = self.meters_to_latlon(latitude, longitude, dx, dy)
+            max_lat, max_lon = self.meters_to_latlon(latitude, longitude, dx + width, dy + height)
 
             js_code = Template(
                 """
@@ -119,6 +123,77 @@ class Window(QMainWindow, form_class):
                 max_lon=max_lon
             )
             self.view.page().runJavaScript(js_code)
+
+    # def calculate_rotated_obstacle(self, center_lat, center_lon, width, height, heading, meters_to_latlon_func):
+    #     """
+    #     Calculate the vertices of a rotated rectangle (obstacle).
+    #
+    #     Args:
+    #     center_lat (float): Latitude of the center of the rectangle.
+    #     center_lon (float): Longitude of the center of the rectangle.
+    #     width (float): Width of the rectangle in meters.
+    #     height (float): Height of the rectangle in meters.
+    #     heading (float): Heading angle of the rectangle in degrees.
+    #     meters_to_latlon_func (function): Function to convert meters to latitude and longitude.
+    #
+    #     Returns:
+    #     list: List of tuples containing the latitude and longitude of each vertex.
+    #     """
+    #     # Convert heading to radians and calculate corner offsets
+    #     angle_rad = radians(heading)
+    #     dx = width / 2
+    #     dy = height / 2
+    #
+    #     # Calculate corner points with rotation
+    #     offsets = [
+    #         (-dx, -dy), (dx, -dy),
+    #         (dx, dy), (-dx, dy)
+    #     ]
+    #     rotated_offsets = [
+    #         (
+    #             offset[0] * cos(angle_rad) - offset[1] * sin(angle_rad),
+    #             offset[0] * sin(angle_rad) + offset[1] * cos(angle_rad)
+    #         ) for offset in offsets
+    #     ]
+    #
+    #     # Convert meter offsets to lat/lon
+    #     vertices = [self.meters_to_latlon(center_lat, center_lon, *offset) for offset in rotated_offsets]
+    #
+    #     return vertices
+    #
+    # # Modify the draw_obstacle function to include heading and use the new calculation
+    # def draw_obstacle(self, worker, view):
+    #     if not worker.obstacle_data:
+    #         return
+    #
+    #     view.page().runJavaScript("if (window.obstaclesLayer) {window.obstaclesLayer.clearLayers();}")
+    #
+    #     for obstacle in worker.obstacle_data:
+    #         center_lat, center_lon, width, height, heading = obstacle  # Assuming obstacle data includes heading
+    #
+    #         # Calculate rotated rectangle vertices
+    #         vertices = self.calculate_rotated_obstacle(center_lat, center_lon, width, height, heading,
+    #                                                    self.meters_to_latlon)
+    #
+    #         # Format vertices for JavaScript
+    #         formatted_vertices = '[' + ', '.join([f'[{lat}, {lon}]' for lat, lon in vertices]) + ']'
+    #
+    #         # JavaScript code for drawing rotated rectangle
+    #         js_code = f"""
+    #         if (!window.obstaclesLayer) {{
+    #             window.obstaclesLayer = L.layerGroup().addTo(map);
+    #         }}
+    #         var bounds = {formatted_vertices};
+    #         var polygon = L.polygon(
+    #             bounds, {{
+    #                 color: "#ff0000",
+    #                 weight: 1,
+    #                 fillOpacity: 0.2
+    #             }}
+    #         );
+    #         window.obstaclesLayer.addLayer(polygon);
+    #         """
+    #         view.page().runJavaScript(js_code)
 
     def init_values(self):
         exe_init_values(self)
@@ -218,28 +293,35 @@ class Window(QMainWindow, form_class):
         self.btn_stop_driving.setEnabled(False)
         self.btn_simulation.setEnabled(True)
 
-        self.worker.message = {"mode_pc_command" : "SELF", "dest_latitude" : None, "dest_longitude" : None} # send는 따로 sensor_data 안 거치고 바로 보냄
+        self.worker.send_data = {"mode_pc_command" : "SELF", "dest_latitude" : None, "dest_longitude" : None} # send는 따로 sensor_data 안 거치고 바로 보냄
 
     # start_driving 버튼 직접 연결된 slot
     # 아직 첫번째 목적지만
     def start_driving(self):
-        get_destinations_from_gui(self)
+        if not get_destinations_from_gui(self):
+            print("cannot start driving")
+            return
 
         self.btn_drive.setEnabled(False)
         self.btn_stop_driving.setEnabled(True)
         self.btn_simulation.setEnabled(False)
 
-        self.worker.message = {"mode_pc_command": "AUTO", "dest_latitude": self.lst_dest_latitude, # send는 따로 sensor_data 안 거치고 바로 보냄
+        self.worker.send_data = {"mode_pc_command": "AUTO", "dest_latitude": self.lst_dest_latitude, # send는 따로 sensor_data 안 거치고 바로 보냄
                                "dest_longitude": self.lst_dest_longitude}
 
     def update_data(self):
         try:
             # self.worker.data > jetson한테 받은 데이터 > 데이터 쓰는 중에 가져가는 것 방지
             self.mutex.lock()
-            self.sensor_data = self.worker.data
+            self.sensor_data = self.worker.received_data
+            self.sensor_data["pwml_sim"] = self.simulation_pwml_auto
+            self.sensor_data["pwmr_sim"] = self.simulation_pwmr_auto
+            # TODO : update
+
             self.mutex.unlock()
-        except:
-            print("Nope2")
+        except Exception as e:
+            print("fail to update current data : ", e)
+            self.mutex.unlock()
 
 
 class WebEnginePage(QtWebEngineWidgets.QWebEnginePage):

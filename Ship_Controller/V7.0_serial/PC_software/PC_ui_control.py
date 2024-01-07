@@ -1,7 +1,9 @@
+import time
+
 from jinja2 import Template
 from PyQt5.QtGui import QStandardItemModel
 import math
-
+import time
 def draw_obstacle(self):
     pass
 
@@ -28,6 +30,8 @@ def exe_init_values(self):
 
     self.btn_stop_driving.setEnabled(False)
 
+    self.sim = None
+
 def get_destinations_from_gui(self):
     ## 자율 운항 중인지 확인은 >> mode_pc_command == "AUTO" 일 때
     self.waypoints_list = []
@@ -46,10 +50,13 @@ def get_destinations_from_gui(self):
             self.waypoints_list.append((longitude, latitude))
 
     except:
-        return print("목적지가 없습니다.")
+        print("목적지가 없습니다.")
+        return False
 
     self.lst_dest_longitude = [coord[0] for coord in self.waypoints_list]
     self.lst_dest_latitude = [coord[1] for coord in self.waypoints_list]
+
+    return True
 
 def exe_route_generate(self):
     # 이전 위치에서 일정 거리만큼 북동쪽 방향으로 이동
@@ -122,6 +129,7 @@ def exe_get_selected_coordinates(self):
     return longitude, latitude
 
 def exe_show_sensor_data(self):
+
     try:
         for key, value in self.sensor_data.items():
             try:
@@ -162,10 +170,10 @@ def exe_show_sensor_data(self):
 
         # setting pc variable
         try:
-            self.edit_IP.setText(str(self.worker.server_ip))
-            self.edit_jetson_socket_status.setText(str(self.worker.jetson_socket_status))
+            self.edit_IP.setText(str(self.worker.jetson_ip))
+            self.edit_jetson_socket_status.setText(str(all(self.worker.socket_statuses.values())))
         except Exception as e:
-            print("why??? : ", e)
+            pass
 
         try:
             if self.simulation_distance_to_target is not None:
@@ -250,19 +258,61 @@ def exe_pointing(instance): ## 경로 지우는 용도로 써야겠다
     instance.view.page().runJavaScript(Template(js).render(map=instance.m.get_name()))
 
 
+# def calculate_triangle_vertices(lat, lon, heading, ship_size):
+#     # 위도(lat), 경도(lon)를 radian 단위로 변환
+#     lat_rad = math.radians(lat)
+#     lon_rad = math.radians(lon)
+#     # 방위각(heading)를 radian 단위로 변환
+#     heading_rad = math.radians(heading)
+#
+#     # 선박의 길이를 이등변삼각형 높이로 설정
+#     height = ship_size / 2
+#
+#     # 이등변삼각형의 내심 좌표 계산
+#     center_lat = math.degrees(lat_rad - height * math.cos(heading_rad))
+#     center_lon = math.degrees(lon_rad + height * math.sin(heading_rad) / math.cos(lat_rad))
+#
+#     # 각 꼭지점의 방위각 계산
+#     angles = [heading_rad, heading_rad + math.radians(150), heading_rad - math.radians(150)]
+#
+#     # 꼭지점 좌표를 저장할 리스트 초기화
+#     vertices = []
+#
+#     # 각 꼭지점의 좌표 계산
+#     for angle in angles:
+#         # 위도와 경도의 차이값 계산
+#         dlat = math.cos(angle) * height / 6371
+#         dlon = math.sin(angle) * height / (6371 * math.cos(lat_rad))
+#
+#         # 위도와 경도의 차이값을 더해 새로운 좌표를 계산
+#         new_lat = lat + math.degrees(dlat)
+#         new_lon = lon + math.degrees(dlon)
+#
+#         # 꼭지점 좌표를 리스트에 추가
+#         vertices.append((new_lat, new_lon))  ##
+#
+#     # 꼭지점 좌표를 리스트 형태로 반환
+#     return vertices
+
+
 def calculate_triangle_vertices(lat, lon, heading, ship_size):
+    # 지구 반경 (미터 단위)
+    earth_radius = 6371000
+
     # 위도(lat), 경도(lon)를 radian 단위로 변환
     lat_rad = math.radians(lat)
     lon_rad = math.radians(lon)
     # 방위각(heading)를 radian 단위로 변환
     heading_rad = math.radians(heading)
 
-    # 선박의 길이를 이등변삼각형 높이로 설정
-    height = ship_size / 2
+    # 선박의 길이를 라디안 단위로 변환
+    height_radian = (ship_size / 2) / earth_radius
 
     # 이등변삼각형의 내심 좌표 계산
-    center_lat = math.degrees(lat_rad - height * math.cos(heading_rad))
-    center_lon = math.degrees(lon_rad + height * math.sin(heading_rad) / math.cos(lat_rad))
+    center_lat_rad = lat_rad
+    center_lon_rad = lon_rad
+    # center_lat_rad = lat_rad - height_radian * math.cos(heading_rad)
+    # center_lon_rad = lon_rad + height_radian * math.sin(heading_rad) / math.cos(lat_rad)
 
     # 각 꼭지점의 방위각 계산
     angles = [heading_rad, heading_rad + math.radians(150), heading_rad - math.radians(150)]
@@ -273,15 +323,15 @@ def calculate_triangle_vertices(lat, lon, heading, ship_size):
     # 각 꼭지점의 좌표 계산
     for angle in angles:
         # 위도와 경도의 차이값 계산
-        dlat = math.cos(angle) * height / 6371
-        dlon = math.sin(angle) * height / (6371 * math.cos(lat_rad))
+        dlat_rad = math.cos(angle) * height_radian
+        dlon_rad = math.sin(angle) * height_radian / math.cos(lat_rad)
 
-        # 위도와 경도의 차이값을 더해 새로운 좌표를 계산
-        new_lat = lat + math.degrees(dlat)
-        new_lon = lon + math.degrees(dlon)
+        # 위도와 경도의 차이값을 더해 새로운 좌표를 계산 (라디안 단위로)
+        new_lat_rad = center_lat_rad + dlat_rad
+        new_lon_rad = center_lon_rad + dlon_rad
 
-        # 꼭지점 좌표를 리스트에 추가
-        vertices.append((new_lat, new_lon))  ##
+        # 꼭지점 좌표를 리스트에 추가 (도 단위로 변환)
+        vertices.append((math.degrees(new_lat_rad), math.degrees(new_lon_rad)))
 
     # 꼭지점 좌표를 리스트 형태로 반환
     return vertices
@@ -299,7 +349,7 @@ def exe_draw_ship(instance):
         lon = instance.simulation_lon
         head = instance.simulation_head
 
-    ship_size = 0.0105 ## km단위
+    ship_size = 1.05  ## m단위
 
     triangle1, triangle2, triangle3 = calculate_triangle_vertices(lat, lon, head, ship_size)
     latitude1, longitude1 = triangle1

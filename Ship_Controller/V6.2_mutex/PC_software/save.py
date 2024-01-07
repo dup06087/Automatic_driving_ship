@@ -56,10 +56,7 @@ class Worker(QtCore.QThread):
         # return '192.168.0.21', 5003, '192.168.0.21', 5004
 
         # local
-        # self.server_ip = '127.0.0.1'
-
-        # lab outter ip
-        self.server_ip = '117.17.187.211'
+        self.server_ip = '127.0.0.1'
         return (self.server_ip, 5003, self.server_ip, 5004)
 
     def run(self):
