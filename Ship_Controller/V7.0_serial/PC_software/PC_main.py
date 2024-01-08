@@ -32,7 +32,7 @@ class Window(QMainWindow, form_class):
             'pwml_auto': None, 'pwmr_auto': None, 'pwml_sim': None, 'pwmr_sim': None, 'cnt_destination' : None, 'distance': None, "waypoint_latitude" : None, "waypoint_longitude" : None, # auto drving
             # gnss get params below
             'velocity': None, 'heading': 0, 'roll': None, 'pitch': None, 'validity': None, 'time': None, 'IP': None, 'date': None,
-            "longitude": 127.077618, "latitude": 37.633173,
+            "longitude": 127.077618, "latitude": 37.633173, "arrived": False
             # gnss end
             } # cf. com_status undefined
             # dest_latitude, dest_longitude > edit_destination에 [,]로 들어감
@@ -57,6 +57,7 @@ class Window(QMainWindow, form_class):
         self.timer100 = QTimer(self)
         self.timer100.timeout.connect(self.update_data)
         self.timer100.timeout.connect(self.show_sensor_data)
+        self.timer100.timeout.connect(self.arrived_detect)
 
         self.timer1000 = QTimer(self)
         self.timer1000.timeout.connect(self.exe_timer1000_functions)
@@ -69,6 +70,17 @@ class Window(QMainWindow, form_class):
         #
         self.timer100.start(100)  # 5 seconds
         self.timer1000.start(1000)
+
+    def arrived_detect(self):
+        try:
+            if self.sensor_data["arrived"] and not self.prev_sensor_data_arrived:
+                self.btn_drive.setEnabled(True)
+                self.btn_stop_driving.setEnabled(False)
+                self.btn_simulation.setEnabled(True)
+                self.worker.send_data = {"mode_pc_command" : "SELF", "dest_latitude" : None, "dest_longitude" : None} # send는 따로 sensor_data 안 거치고 바로 보냄
+            self.prev_sensor_data_arrived = self.sensor_data["arrived"]
+        except Exception as e:
+            print("arrived detection error : ", e)
 
     def exe_timer1000_functions(self):
         try:
@@ -259,6 +271,7 @@ class Window(QMainWindow, form_class):
 
         self.worker.send_data = {"mode_pc_command": "AUTO", "dest_latitude": self.lst_dest_latitude, # send는 따로 sensor_data 안 거치고 바로 보냄
                                "dest_longitude": self.lst_dest_longitude}
+        print("diff check : ", self.worker.last_sent_command, self.worker.send_data)
 
     def update_data(self):
         try:

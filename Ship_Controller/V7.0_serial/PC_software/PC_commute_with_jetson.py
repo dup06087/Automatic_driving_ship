@@ -70,7 +70,7 @@ class Client(QThread):
 
     def handle_send_data(self, send_socket):
         self.update_socket_status("send_socket", True)
-        last_sent_command = None  # 마지막으로 전송된 명령을 추적하기 위한 변수
+        self.last_sent_command = None  # 마지막으로 전송된 명령을 추적하기 위한 변수
         send_socket.settimeout(1.0)  # 5초 후에 타임아웃되도록 설정
 
         while True:
@@ -83,26 +83,26 @@ class Client(QThread):
                 print("not sent heart beat")
                 break
             try:
-                if self.send_data != last_sent_command and self.validate_data(self.send_data):
+                if self.send_data != self.last_sent_command and self.validate_data(self.send_data):
                     print("in the if")
                     try:
                         print("in the try")
                         message = json.dumps(self.send_data) + '\n'
                         send_socket.sendall(message.encode())
-                        last_sent_command = self.send_data  # 전송된 명령 업데이트
+                        self.last_sent_command = self.send_data  # 전송된 명령 업데이트
                         print("Sent to jetson: ", self.send_data)
 
                         try:
                             ack = send_socket.recv(1024).strip()
                             if ack.decode() != "ack":
                                 print("No ack received. Resending...")
-                                last_sent_command = None  # 재전송을 위해 None으로 설정
+                                self.last_sent_command = None  # 재전송을 위해 None으로 설정
                                 continue
                             else:
                                 print("sended well")
                         except socket.timeout:
                             print("Socket receive timeout occurred - ack")
-                            last_sent_command = None  # 재전송을 위해 None으로 설정
+                            self.last_sent_command = None  # 재전송을 위해 None으로 설정
                             continue
 
                     except (BrokenPipeError, TimeoutError):
