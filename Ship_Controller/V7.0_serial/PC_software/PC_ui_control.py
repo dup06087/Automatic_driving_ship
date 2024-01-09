@@ -115,6 +115,42 @@ def exe_route_generate(self):
         self.points_init = True
     self.view.page().runJavaScript(js)
 
+def exe_draw_waypoint(self):
+    try:
+        print("try drawing")
+        if self.sensor_data['waypoint_latitude'] is not None:
+            js = Template(
+                """
+                if (true) {
+            if (!window.waypoint) {
+                // 웨이포인트 객체가 존재하지 않으면 생성
+                window.waypoint = L.circleMarker(
+                    [{{latitude}}, {{longitude}}], {
+                        "color": "red",
+                        "fillColor": "red",
+                        "fillOpacity": 0.5,
+                        "radius": 2,
+                        "stroke": true,
+                        "weight": 5
+                    }
+                );
+                window.waypoint.addTo({{map}});
+            }
+            else {
+                // 웨이포인트 객체가 이미 존재하면 위치 업데이트
+                window.waypoint.setLatLng([{{latitude}}, {{longitude}}]);
+            }
+        }
+                """
+            ).render(map=self.m.get_name(), latitude=self.sensor_data['waypoint_latitude'], longitude=self.sensor_data['waypoint_longitude'])
+            self.view.page().runJavaScript(js)
+            print("done")
+            # self.view.page().runJavaScript(js)
+    except Exception as e:
+        print("waypoint error : ", e)
+
+
+
 def exe_get_selected_coordinates(self):
     view = self.waypoints
     model = view.model()
@@ -343,34 +379,6 @@ def exe_draw_ship(instance):
              latitude3=latitude3, longitude3=longitude3)
 
     instance.view.page().runJavaScript(js)
-
-# def update_current_marker(self):
-#     if self.sensor_data["dest_latitude"] == self.prev_dest_latitude and self.sensor_data["dest_longitude"] == self.prev_dest_longitude:
-#         # return
-#         pass
-#
-#     else:
-#         self.view.page().runJavaScript(Template("{{map}}.removeLayer(redMarker)").render(map=self.m.get_name()))
-#
-#
-#         self.prev_dest_latitude = self.sensor_data["dest_latitude"]
-#         self.prev_dest_longitude = self.sensor_data["dest_longitude"]
-#
-#         js_add_marker = Template("""
-#             var redMarker = L.AwesomeMarkers.icon({
-#                 markerColor: 'red',
-#                 icon: 'coffee'
-#             });
-#
-#             // 마커 객체를 생성하고 지도에 추가합니다.
-#             // L.marker([$current_lat, $current_lon], {icon: redMarker}).addTo($map);
-#             L.marker([{{current_lat}}, {{current_lon}}], {icon: redMarker}).addTo({{map}});
-#         """).render(
-#             map=self.m.get_name(),
-#             current_lat=self.sensor_data["dest_latitude"][self.sensor_data["cnt_destination"]],
-#             current_lon=self.sensor_data["dest_longitude"][self.sensor_data["cnt_destination"]]
-#         )
-#         self.view.page().runJavaScript(js_add_marker)
 
 
 def update_current_marker(self):

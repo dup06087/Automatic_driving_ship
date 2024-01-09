@@ -58,7 +58,7 @@ class Window(QMainWindow, form_class):
         self.timer100.timeout.connect(self.update_data)
         self.timer100.timeout.connect(self.show_sensor_data)
         self.timer100.timeout.connect(self.arrived_detect)
-
+        # self.timer100.timeout.connect(self.exe_timer1000_functions)
         self.timer1000 = QTimer(self)
         self.timer1000.timeout.connect(self.exe_timer1000_functions)
         # self.timer1000.timeout.connect(self.draw_ship)
@@ -79,22 +79,30 @@ class Window(QMainWindow, form_class):
                 self.btn_simulation.setEnabled(True)
                 self.worker.send_data = {"mode_pc_command" : "SELF", "dest_latitude" : None, "dest_longitude" : None} # send는 따로 sensor_data 안 거치고 바로 보냄
             self.prev_sensor_data_arrived = self.sensor_data["arrived"]
+        except KeyError:
+            pass
+
         except Exception as e:
             print("arrived detection error : ", e)
+
 
     def exe_timer1000_functions(self):
         try:
             self.draw_ship()
             self.route_generate()
             self.draw_obstacle()
-
-
+            self.draw_waypoint()
             update_current_marker(self)
+
+
         except Exception as e:
             print("timer1000 functions error : ", e)
 
+    def draw_waypoint(self):
+        exe_draw_waypoint(self)
+
     def print_values(self):
-        pass
+        print(self.sensor_data)
 
     def meters_to_latlon(self, lat, lon, delta_x, delta_y):
         # 지구 반경 (미터 단위)

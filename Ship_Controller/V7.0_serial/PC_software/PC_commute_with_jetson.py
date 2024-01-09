@@ -73,20 +73,22 @@ class Client(QThread):
         self.last_sent_command = None  # 마지막으로 전송된 명령을 추적하기 위한 변수
         send_socket.settimeout(1.0)  # 5초 후에 타임아웃되도록 설정
 
+        prev_time_heartbeat = 0
         while True:
             # check connection status
             try:
                 send_socket.sendall("heartbeat".encode())  # 'a' 대신 'heartbeat'으로 변경
-                print("sent heart beat")
+                time_heartbeat = time.time()
+                if time_heartbeat - prev_time_heartbeat >= 5:
+                    print("sent heart beat")
+                    prev_time_heartbeat = time_heartbeat
             except:
                 self.update_socket_status("send_socket", False)
                 print("not sent heart beat")
                 break
             try:
                 if self.send_data != self.last_sent_command and self.validate_data(self.send_data):
-                    print("in the if")
                     try:
-                        print("in the try")
                         message = json.dumps(self.send_data) + '\n'
                         send_socket.sendall(message.encode())
                         self.last_sent_command = self.send_data  # 전송된 명령 업데이트
