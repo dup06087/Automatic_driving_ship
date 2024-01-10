@@ -118,6 +118,54 @@ class Window(QMainWindow, form_class):
 
         return new_lat, new_lon
 
+    # def draw_obstacle(self):
+    #     # 리스트가 None이거나 비어있는 경우 아무것도 하지 않음
+    #     if not self.worker.obstacle_data:
+    #         return
+    #
+    #     if self.worker.received_data["latitude"] is None or self.worker.received_data["longitude"] is None:
+    #         return print("draw obstacle error : lat, lon is None")
+    #
+    #     # 기존에 그려진 장애물 제거
+    #     self.view.page().runJavaScript("if (window.obstaclesLayer) {window.obstaclesLayer.clearLayers();}")
+    #
+    #     # print("self.worker : ", self.worker.received_data)
+    #     latitude = self.worker.received_data["latitude"]
+    #     longitude = self.worker.received_data["longitude"]
+    #     # 새 장애물 그리기
+    #     for obstacle in self.worker.obstacle_data:
+    #         dx, dy, width, height = obstacle
+    #
+    #         # 변환된 좌표 계산
+    #         try:
+    #             min_lat, min_lon = self.meters_to_latlon(latitude, longitude, dx, dy)
+    #             max_lat, max_lon = self.meters_to_latlon(latitude, longitude, dx + width, dy + height)
+    #         except Exception as e:
+    #             print(e)
+    #         js_code = Template(
+    #             """
+    #             if (!window.obstaclesLayer) {
+    #                 window.obstaclesLayer = L.layerGroup().addTo({{ map }});
+    #             }
+    #             var bounds = [[{{ min_lat }}, {{ min_lon }}], [{{ max_lat }}, {{ max_lon }}]];
+    #             var rectangle = L.rectangle(
+    #                 bounds, {
+    #                     "color": "#ff0000",
+    #                     "weight": 1,
+    #                     "fillOpacity": 0.2
+    #                 }
+    #             );
+    #             window.obstaclesLayer.addLayer(rectangle);
+    #             """
+    #         ).render(
+    #             map=self.m.get_name(),
+    #             min_lat=min_lat,
+    #             min_lon=min_lon,
+    #             max_lat=max_lat,
+    #             max_lon=max_lon
+    #         )
+    #         self.view.page().runJavaScript(js_code)
+
     def draw_obstacle(self):
         # 리스트가 None이거나 비어있는 경우 아무것도 하지 않음
         if not self.worker.obstacle_data:
@@ -132,39 +180,65 @@ class Window(QMainWindow, form_class):
         # print("self.worker : ", self.worker.received_data)
         latitude = self.worker.received_data["latitude"]
         longitude = self.worker.received_data["longitude"]
-        # 새 장애물 그리기
+
+        heading = self.sensor_data['heading']
+
         for obstacle in self.worker.obstacle_data:
             dx, dy, width, height = obstacle
 
-            # 변환된 좌표 계산
-            try:
-                min_lat, min_lon = self.meters_to_latlon(latitude, longitude, dx, dy)
-                max_lat, max_lon = self.meters_to_latlon(latitude, longitude, dx + width, dy + height)
-            except Exception as e:
-                print(e)
+            # 장애물의 중심점 계산
+            cx, cy = dx + width / 2, dy + height / 2
+
+            # 꼭짓점 계산
+            corners = [
+                (dx, dy),
+                (dx + width, dy),
+                (dx + width, dy + height),
+                (dx, dy + height)
+            ]
+
+            # 회전 적용
+            rotated_corners = []
+            for corner in corners:
+                # 장애물을 중심점을 기준으로 회전
+                rotated_x, rotated_y = self.rotate_point(corner[0], corner[1], cx, cy, heading)
+                rotated_corners.append((rotated_x, rotated_y))
+
+            # 위도/경도 변환 및 Polygon 생성
+            lat_lon_corners = []
+            for corner in rotated_corners:
+                lat, lon = self.meters_to_latlon(latitude, longitude, corner[0], corner[1])
+                lat_lon_corners.append([lat, lon])
+
+            # Leaflet Polygon 생성
             js_code = Template(
                 """
                 if (!window.obstaclesLayer) {
                     window.obstaclesLayer = L.layerGroup().addTo({{ map }});
                 }
-                var bounds = [[{{ min_lat }}, {{ min_lon }}], [{{ max_lat }}, {{ max_lon }}]];
-                var rectangle = L.rectangle(
-                    bounds, {
+                var polygon = L.polygon(
+                    {{ lat_lon_corners }},
+                    {
                         "color": "#ff0000",
                         "weight": 1,
                         "fillOpacity": 0.2
                     }
                 );
-                window.obstaclesLayer.addLayer(rectangle);
+                window.obstaclesLayer.addLayer(polygon);
                 """
             ).render(
                 map=self.m.get_name(),
-                min_lat=min_lat,
-                min_lon=min_lon,
-                max_lat=max_lat,
-                max_lon=max_lon
+                lat_lon_corners=lat_lon_corners
             )
             self.view.page().runJavaScript(js_code)
+
+    def rotate_point(self, px, py, cx, cy, angle):
+        # 포인트 회전 함수
+        theta = np.radians(angle)
+        dx, dy = px - cx, py - cy
+        qx = np.cos(theta) * dx - np.sin(theta) * dy + cx
+        qy = np.sin(theta) * dx + np.cos(theta) * dy + cy
+        return qx, qy
 
     def init_values(self):
         exe_init_values(self)
