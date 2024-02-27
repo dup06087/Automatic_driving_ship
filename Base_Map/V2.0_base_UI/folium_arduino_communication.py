@@ -35,20 +35,14 @@ class WindowClass(QMainWindow, form_class):
         self.view.setContentsMargins(50, 50, 50, 50)
 
         self.Folium.addWidget(self.view, stretch = 1)
-
-        ### google ###
         tiles = "http://mt0.google.com/vt/lyrs=m&hl=ko&x={x}&y={y}&z={z}"
         # tiles = "http://mt0.google.com/vt/lyrs=y&hl=ko&x={x}&y={y}&z={z}" #hybrid
         # tiles = "http://mt0.google.com/vt/lyrs=t&hl=ko&x={x}&y={y}&z={z}" # terrain only
         # tiles = "http://mt0.google.com/vt/lyrs=s&hl=ko&x={x}&y={y}&z={z}" # staellite only
         attr = "Google"
-        # self.m = folium.Map(
-        #     location=[37.631104100930436, 127.0779647879758], zoom_start=13, tiles=tiles, attr=attr, max_zoom= 22)
-
-        ### folium ###
         self.m = folium.Map(
-            location=[37.631104100930436, 127.0779647879758], zoom_start=13, max_zoom=22)
-
+            location=[37.631104100930436, 127.0779647879758], zoom_start=13, tiles=tiles, attr=attr, max_zoom= 22)
+        # 속성 설정
 
         folium.Marker((37.631104100930436, 127.0779647879758)).add_to(self.m)
 
@@ -87,7 +81,7 @@ class WindowClass(QMainWindow, form_class):
         self.view.setHtml(self.data.getvalue().decode())
 
     # def GetPosition(self, latitude, longitude):
-    def GetPosition(self, latitude = 37.63124636111111, longitude= 127.07569480555556):
+    def GetPosition(self, latitude = 37, longitude= 127):
         js = Template(
             """
         L.marker([{{latitude}}, {{longitude}}] )

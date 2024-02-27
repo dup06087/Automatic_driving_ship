@@ -16,8 +16,6 @@ import random
 form_class = uic.loadUiType("V1_UI.ui")[0]
 from math import radians, cos, sin
 
-
-
 class Window(QMainWindow, form_class):
     def __init__(self):
         super().__init__()
@@ -118,54 +116,6 @@ class Window(QMainWindow, form_class):
 
         return new_lat, new_lon
 
-    # def draw_obstacle(self):
-    #     # 리스트가 None이거나 비어있는 경우 아무것도 하지 않음
-    #     if not self.worker.obstacle_data:
-    #         return
-    #
-    #     if self.worker.received_data["latitude"] is None or self.worker.received_data["longitude"] is None:
-    #         return print("draw obstacle error : lat, lon is None")
-    #
-    #     # 기존에 그려진 장애물 제거
-    #     self.view.page().runJavaScript("if (window.obstaclesLayer) {window.obstaclesLayer.clearLayers();}")
-    #
-    #     # print("self.worker : ", self.worker.received_data)
-    #     latitude = self.worker.received_data["latitude"]
-    #     longitude = self.worker.received_data["longitude"]
-    #     # 새 장애물 그리기
-    #     for obstacle in self.worker.obstacle_data:
-    #         dx, dy, width, height = obstacle
-    #
-    #         # 변환된 좌표 계산
-    #         try:
-    #             min_lat, min_lon = self.meters_to_latlon(latitude, longitude, dx, dy)
-    #             max_lat, max_lon = self.meters_to_latlon(latitude, longitude, dx + width, dy + height)
-    #         except Exception as e:
-    #             print(e)
-    #         js_code = Template(
-    #             """
-    #             if (!window.obstaclesLayer) {
-    #                 window.obstaclesLayer = L.layerGroup().addTo({{ map }});
-    #             }
-    #             var bounds = [[{{ min_lat }}, {{ min_lon }}], [{{ max_lat }}, {{ max_lon }}]];
-    #             var rectangle = L.rectangle(
-    #                 bounds, {
-    #                     "color": "#ff0000",
-    #                     "weight": 1,
-    #                     "fillOpacity": 0.2
-    #                 }
-    #             );
-    #             window.obstaclesLayer.addLayer(rectangle);
-    #             """
-    #         ).render(
-    #             map=self.m.get_name(),
-    #             min_lat=min_lat,
-    #             min_lon=min_lon,
-    #             max_lat=max_lat,
-    #             max_lon=max_lon
-    #         )
-    #         self.view.page().runJavaScript(js_code)
-
     def draw_obstacle(self):
         # 리스트가 None이거나 비어있는 경우 아무것도 하지 않음
         if not self.worker.obstacle_data:
@@ -250,11 +200,18 @@ class Window(QMainWindow, form_class):
 
         self.Folium.addWidget(self.view, stretch=1)
 
+        tiles = "http://mt0.google.com/vt/lyrs=m&hl=ko&x={x}&y={y}&z={z}"
+        #         # tiles = "http://mt0.google.com/vt/lyrs=y&hl=ko&x={x}&y={y}&z={z}" #hybrid
+        #         # tiles = "http://mt0.google.com/vt/lyrs=t&hl=ko&x={x}&y={y}&z={z}" # terrain only
+        #         # tiles = "http://mt0.google.com/vt/lyrs=s&hl=ko&x={x}&y={y}&z={z}" # staellite only
+        attr = "Google"
         self.m = folium.Map(
-            zoom_start=18, location=coordinate, control_scale=True
-        )
+            location=[37.631104100930436, 127.0779647879758], zoom_start=18, tiles=tiles, attr=attr, max_zoom= 22)
 
-        folium.TileLayer('OpenStreetMap', max_zoom=22).add_to(self.m)
+        # self.m = folium.Map(
+        #     zoom_start=18, location=coordinate, control_scale=True
+        # )
+        # folium.TileLayer('OpenStreetMap', max_zoom=22).add_to(self.m)
 
         draw = Draw(
             draw_options={

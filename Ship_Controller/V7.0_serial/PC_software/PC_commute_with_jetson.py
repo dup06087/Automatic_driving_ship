@@ -8,7 +8,6 @@ import json
 import time
 from PyQt5.QtWidgets import QApplication
 
-
 class Client(QThread):
     def __init__(self, receive_port=5004, send_port=5003, receive_obstacle_port=5005):
         super(Client, self).__init__()
@@ -19,7 +18,8 @@ class Client(QThread):
         self.received_data = {}
         self.obstacle_data = []
 
-        self.jetson_ip = '117.17.187.211'
+        # self.jetson_ip = '117.17.187.211'
+        self.jetson_ip = '223.171.136.213'
 
         self.socket_statuses = {
             "send_socket": False,

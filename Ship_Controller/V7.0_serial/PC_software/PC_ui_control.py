@@ -397,8 +397,6 @@ def update_current_marker(self):
             }
         """)
 
-
-
         # 새 마커를 추가합니다.
         js_add_marker = Template("""
             var redMarker = L.AwesomeMarkers.icon({
