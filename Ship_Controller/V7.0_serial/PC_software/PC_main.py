@@ -59,20 +59,30 @@ class Window(QMainWindow, form_class):
         self.timer100.timeout.connect(self.show_sensor_data)
 
         self.timer1000 = QTimer(self)
-        self.timer1000.timeout.connect(self.def_timer_1000)
+        self.timer1000.timeout.connect(self.exe_timer1000_functions)
         # self.timer1000.timeout.connect(self.draw_ship)
         # self.timer1000.timeout.connect(self.route_generate)
         # self.timer1000.timeout.connect(self.draw_obstacle)
+        self.timer1000.timeout.connect(self.print_values)
         # self.timer1000.timeout.connect(lambda: self.draw_obstacle(self.worker, self.view))
 
         #
         self.timer100.start(100)  # 5 seconds
         self.timer1000.start(1000)
 
-    def def_timer_1000(self):
-        self.draw_ship()
-        self.route_generate()
-        self.draw_obstacle()
+    def exe_timer1000_functions(self):
+        try:
+            self.draw_ship()
+            self.route_generate()
+            self.draw_obstacle()
+
+
+            update_current_marker(self)
+        except Exception as e:
+            print("timer1000 functions error : ", e)
+
+    def print_values(self):
+        pass
 
     def meters_to_latlon(self, lat, lon, delta_x, delta_y):
         # 지구 반경 (미터 단위)
@@ -89,7 +99,52 @@ class Window(QMainWindow, form_class):
         return new_lat, new_lon
 
     def draw_obstacle(self):
-        exe_draw_obstacle(self)
+        # 리스트가 None이거나 비어있는 경우 아무것도 하지 않음
+        if not self.worker.obstacle_data:
+            return
+
+        if self.worker.received_data["latitude"] is None or self.worker.received_data["longitude"] is None:
+            return print("draw obstacle error : lat, lon is None")
+
+        # 기존에 그려진 장애물 제거
+        self.view.page().runJavaScript("if (window.obstaclesLayer) {window.obstaclesLayer.clearLayers();}")
+
+        # print("self.worker : ", self.worker.received_data)
+        latitude = self.worker.received_data["latitude"]
+        longitude = self.worker.received_data["longitude"]
+        # 새 장애물 그리기
+        for obstacle in self.worker.obstacle_data:
+            dx, dy, width, height = obstacle
+
+            # 변환된 좌표 계산
+            try:
+                min_lat, min_lon = self.meters_to_latlon(latitude, longitude, dx, dy)
+                max_lat, max_lon = self.meters_to_latlon(latitude, longitude, dx + width, dy + height)
+            except Exception as e:
+                print(e)
+            js_code = Template(
+                """
+                if (!window.obstaclesLayer) {
+                    window.obstaclesLayer = L.layerGroup().addTo({{ map }});
+                }
+                var bounds = [[{{ min_lat }}, {{ min_lon }}], [{{ max_lat }}, {{ max_lon }}]];
+                var rectangle = L.rectangle(
+                    bounds, {
+                        "color": "#ff0000",
+                        "weight": 1,
+                        "fillOpacity": 0.2
+                    }
+                );
+                window.obstaclesLayer.addLayer(rectangle);
+                """
+            ).render(
+                map=self.m.get_name(),
+                min_lat=min_lat,
+                min_lon=min_lon,
+                max_lat=max_lat,
+                max_lon=max_lon
+            )
+            self.view.page().runJavaScript(js_code)
 
     def init_values(self):
         exe_init_values(self)

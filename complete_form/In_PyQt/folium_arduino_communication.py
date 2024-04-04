@@ -65,22 +65,18 @@ class WindowClass(QMainWindow) :
 
         layout = QVBoxLayout()
         self.folium_output = view
-
-        # self.folium_output(view.show())
-        # self.folium_output.show(view.show())
         layout.addWidget(self.folium_output)
 
-        self.btn1 = QPushButton("Send")
-        self.btn1.clicked.connect(self.SendData)
-        layout.addWidget(self.btn1)
+        # self.btn1 = QPushButton("Send")
+        # self.btn1.clicked.connect(self.SendData)
+        # layout.addWidget(self.btn1)
 
-        self.btn_stop = QPushButton("AddWidgets")
-        # self.btn_stop.clicked.connect()
-        layout.addWidget(self.btn_stop)
+        # self.btn_stop = QPushButton("AddWidgets")
+        # layout.addWidget(self.btn_stop)
 
-        self.widget = QWidget()
-        self.widget.setLayout(layout)
-        self.setCentralWidget(self.widget)
+        # self.widget = QWidget()
+        # self.widget.setLayout(layout)
+        # self.setCentralWidget(self.widget)
 
     def SendData(self):
         pass

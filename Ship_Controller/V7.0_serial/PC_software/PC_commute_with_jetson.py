@@ -29,7 +29,6 @@ class Client(QThread):
 
         self.is_communicating = False
 
-
     def run(self):
         while True:
             try:
@@ -57,7 +56,7 @@ class Client(QThread):
                     self.is_communicating = True
                     while self.is_communicating:
                         print("communicating well")
-                        time.sleep(1)
+                        time.sleep(5)
 
                     print("socket restart")
 
@@ -65,43 +64,63 @@ class Client(QThread):
                 print(f"Connection error: {e}. Retrying in 5 seconds...")
                 time.sleep(5)
 
+
     def update_socket_status(self, socket_name, status):
         self.socket_statuses[socket_name] = status
 
     def handle_send_data(self, send_socket):
         self.update_socket_status("send_socket", True)
         last_sent_command = None  # 마지막으로 전송된 명령을 추적하기 위한 변수
+        send_socket.settimeout(1.0)  # 5초 후에 타임아웃되도록 설정
 
         while True:
             # check connection status
             try:
-                send_socket.sendall("hi".encode())
+                send_socket.sendall("heartbeat".encode())  # 'a' 대신 'heartbeat'으로 변경
+                print("sent heart beat")
             except:
+                self.update_socket_status("send_socket", False)
+                print("not sent heart beat")
                 break
+            try:
+                if self.send_data != last_sent_command and self.validate_data(self.send_data):
+                    print("in the if")
+                    try:
+                        print("in the try")
+                        message = json.dumps(self.send_data) + '\n'
+                        send_socket.sendall(message.encode())
+                        last_sent_command = self.send_data  # 전송된 명령 업데이트
+                        print("Sent to jetson: ", self.send_data)
 
-            if self.send_data != last_sent_command and self.validate_data(self.send_data):
-                try:
-                    message = json.dumps(self.send_data) + '\n'
-                    send_socket.sendall(message.encode())
+                        try:
+                            ack = send_socket.recv(1024).strip()
+                            if ack.decode() != "ack":
+                                print("No ack received. Resending...")
+                                last_sent_command = None  # 재전송을 위해 None으로 설정
+                                continue
+                            else:
+                                print("sended well")
+                        except socket.timeout:
+                            print("Socket receive timeout occurred - ack")
+                            last_sent_command = None  # 재전송을 위해 None으로 설정
+                            continue
 
-                    last_sent_command = self.send_data  # 전송된 명령 업데이트
-                    print("to jetson : ", self.send_data)
+                    except (BrokenPipeError, TimeoutError):
+                        print("Send connection lost. Attempting to reconnect...")
+                        self.update_socket_status("send_socket", False)
+                        break
 
-                except (BrokenPipeError, TimeoutError):
-                    print("Send connection lost. Attempting to reconnect...")
-                    self.update_socket_status("send_socket", False)
-                    break  # 연결이 끊어진 경우 반복문 탈출
+                    except KeyboardInterrupt:
+                        send_socket.close()
+                        break
 
-                except KeyboardInterrupt:
-                    send_socket.close()
-
-                except Exception as e:
-                    print("handle send data : ", e)
-                    self.update_socket_status("send_socket", False)
-                    break  # 기타 예외 발생 시 반복문 탈출
-
+                    except Exception as e:
+                        print("Handle send data error: ", e)
+                        self.update_socket_status("send_socket", False)
+                        break
+            except Exception as e:
+                print(e)
             time.sleep(0.2)  # 데이터 확인 간격
-
         self.is_communicating = False
 
     def handle_receive_data(self, receive_socket):
@@ -139,9 +158,7 @@ class Client(QThread):
                 break
 
             time.sleep(0.01)
-
         self.is_communicating = False
-
 
     def handle_receive_obstacle_data(self, receive_socket):
         # TODO : overflow 해결해야함함
@@ -212,7 +229,6 @@ class Client(QThread):
             time.sleep(0.1)
 
         self.is_communicating = False
-
 
     def validate_data(self, data):
         required_keys = ["mode_pc_command", "dest_latitude", "dest_longitude"]

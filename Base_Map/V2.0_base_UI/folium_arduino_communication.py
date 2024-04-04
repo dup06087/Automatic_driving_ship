@@ -14,23 +14,6 @@ from jinja2 import Template
 form_class = uic.loadUiType("V1_UI.ui")[0]
 app = QtWidgets.QApplication(sys.argv)
 
-# arduino = serial.Serial('COM3', 9600)
-
-# class CoordinateProvider(QObject):
-#     coordinate_changed = pyqtSignal(float, float)
-#
-#     def __init__(self, parent=None):
-#         super().__init__(parent)
-#
-#     def generate_coordinate(self):
-        # # import random
-        # #
-        # # center_lat, center_lng = 41.8828, 12.4761
-        # # x, y = (random.uniform(-0.001, 0.001) for _ in range(2))
-        # # latitude = center_lat + x
-        # # longitude = center_lng + y
-        # # self.coordinate_changed.emit(latitude, longitude)
-
 class WebEnginePage(QtWebEngineWidgets.QWebEnginePage):
     def javaScriptAlert(self, securityOrigin: QtCore.QUrl, msg: str):
         f = open('stdout.txt', 'w')
@@ -53,31 +36,20 @@ class WindowClass(QMainWindow, form_class):
 
         self.Folium.addWidget(self.view, stretch = 1)
 
+        ### google ###
+        tiles = "http://mt0.google.com/vt/lyrs=m&hl=ko&x={x}&y={y}&z={z}"
+        # tiles = "http://mt0.google.com/vt/lyrs=y&hl=ko&x={x}&y={y}&z={z}" #hybrid
+        # tiles = "http://mt0.google.com/vt/lyrs=t&hl=ko&x={x}&y={y}&z={z}" # terrain only
+        # tiles = "http://mt0.google.com/vt/lyrs=s&hl=ko&x={x}&y={y}&z={z}" # staellite only
+        attr = "Google"
+        # self.m = folium.Map(
+        #     location=[37.631104100930436, 127.0779647879758], zoom_start=13, tiles=tiles, attr=attr, max_zoom= 22)
+
+        ### folium ###
         self.m = folium.Map(
-            location=[37.631104100930436, 127.0779647879758], zoom_start=13
-        )
+            location=[37.631104100930436, 127.0779647879758], zoom_start=13, max_zoom=22)
 
-        # Marking_Object = CoordinateProvider()
-        # Marking_Object.coordinate_changed.connect(self.GetPosition)
-        # self.GetPosition.connect(Marking_Object.generate_coordinate)
 
-        folium.raster_layers.TileLayer(
-            tiles="http://mt1.google.com/vt/lyrs=m&h1=p1Z&x={x}&y={y}&z={z}",
-            name="Standard Roadmap",
-            attr="Google Map",
-        ).add_to(self.m)
-        folium.raster_layers.TileLayer(
-            tiles="http://mt1.google.com/vt/lyrs=s&h1=p1Z&x={x}&y={y}&z={z}",
-            name="Satellite Only",
-            attr="Google Map",
-        ).add_to(self.m)
-        folium.raster_layers.TileLayer(
-            tiles="http://mt1.google.com/vt/lyrs=y&h1=p1Z&x={x}&y={y}&z={z}",
-            name="Hybrid",
-            attr="Google Map",
-        ).add_to(self.m)
-
-        folium.LayerControl().add_to(self.m)
         folium.Marker((37.631104100930436, 127.0779647879758)).add_to(self.m)
 
         draw = Draw(
@@ -110,12 +82,12 @@ class WindowClass(QMainWindow, form_class):
         self.m.save(self.data, close_file=False)
 
         # self.view = QtWebEngineWidgets.QWebEngineView()
-        self.page = WebEnginePage(self.view)  ### get coords
-        self.view.setPage(self.page)  ### get coords
+        # self.page = WebEnginePage(self.view)  ### get coords
+        # self.view.setPage(self.page)  ### get coords
         self.view.setHtml(self.data.getvalue().decode())
 
     # def GetPosition(self, latitude, longitude):
-    def GetPosition(self, latitude = 37, longitude= 127):
+    def GetPosition(self, latitude = 37.63124636111111, longitude= 127.07569480555556):
         js = Template(
             """
         L.marker([{{latitude}}, {{longitude}}] )
