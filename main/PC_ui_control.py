@@ -16,7 +16,7 @@ def set_progress_bar_values(self):
                 if key == "coeff_Kf_value":
                     self.coeff_Kf.setValue(value * 10)
                 elif key == "coeff_Kd_value":
-                    self.coeff_Kd.setValue(value * 10)
+                    self.coeff_Kd.setValue(value)
                 elif key == "coeff_voxel_size_value":
                     self.coeff_voxel_size.setValue(value * 1000)
                 elif key == "coeff_intensity_value":
@@ -38,7 +38,7 @@ def exe_coeffcient_changing(self):
         # 레이블의 텍스트 업데이트
         self.lbl_coeff_Kf.setText(str(self.coeff_Kf_value))
 
-        self.coeff_Kd_value = self.coeff_Kd.value() / 10
+        self.coeff_Kd_value = self.coeff_Kd.value()
         # 레이블의 텍스트 업데이트
         self.lbl_coeff_Kd.setText(str(self.coeff_Kd_value))
 

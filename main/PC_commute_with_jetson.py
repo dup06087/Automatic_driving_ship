@@ -315,7 +315,7 @@ class Client(QThread):
                         obstacle_parsed_data = json.loads(message)
                         self.obstacle_data = obstacle_parsed_data
                         self.update_socket_status("receive_obstacle_socket", True)
-                        print("obstacle : ", self.obstacle_data)
+                        # print("obstacle : ", self.obstacle_data)
 
                         # Discard processed data
                         data_buffer = data_buffer[end_index + 3:]

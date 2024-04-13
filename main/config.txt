@@ -1,5 +1,5 @@
-coeff_Kf_value=1.0
-coeff_Kd_value=4.5
+coeff_Kf_value=2.5
+coeff_Kd_value=30
 coeff_voxel_size_value=0.035
 coeff_intensity_value=5
 coeff_eps_value=0.301
