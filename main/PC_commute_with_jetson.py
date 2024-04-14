@@ -1,7 +1,6 @@
 import sys
 import threading
 
-import keyboard
 from PyQt5.QtCore import QThread
 import socket
 import json

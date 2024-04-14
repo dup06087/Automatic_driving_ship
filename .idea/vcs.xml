@@ -2,10 +2,5 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/RTCM_get/NTRIP" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/RTCM_get/NTRIP/NTRIP Client/ntripclient" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/jetson/autonomous_ship_controller" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/watch_dog_timer" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/watch_dog_timer/mbed-rtos" vcs="hg4idea" />
   </component>
 </project>
